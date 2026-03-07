@@ -235,10 +235,102 @@ textarea:focus {
   animation: fadeIn 0.5s ease forwards;
 }
 
-/* Responsive */
+/* Responsive Adjustments */
 @media (max-width: 768px) {
-  .log-item {
-    grid-template-columns: 1fr 1fr;
-    grid-template-areas: "part user" "process time" "status action";
+  .container {
+    padding: 1rem;
   }
+
+  h1 {
+    font-size: 1.8rem;
+  }
+
+  header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  header>div:last-child {
+    width: 100%;
+    overflow-x: auto;
+    padding-bottom: 0.5rem;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .form-card {
+    padding: 1.25rem;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .btn {
+    width: 100%;
+  }
+
+  /* Log List Mobile (Card View) */
+  .log-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1.25rem;
+  }
+
+  .log-item>div {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+  }
+
+  .log-item>div::before {
+    content: attr(data-label);
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--secondary);
+    margin-right: 1rem;
+  }
+
+  .mobile-hide {
+    display: none !important;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  /* Footer Nav */
+  nav.glass {
+    width: 90%;
+    bottom: 1rem;
+    padding: 0.75rem 1rem;
+    gap: 1rem;
+    justify-content: space-around;
+  }
+}
+
+/* Base Utility Classes */
+.flex {
+  display: flex;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.justify-between {
+  justify-content: space-between;
+}
+
+.gap-2 {
+  gap: 0.5rem;
+}
+
+.w-full {
+  width: 100%;
 }
