@@ -5,6 +5,8 @@ import WorkLogForm from '@/components/WorkLogForm'
 import WorkLogList from '@/components/WorkLogList'
 import Dashboard from '@/components/Dashboard'
 
+export const dynamic = 'force-dynamic'
+
 export default async function Home() {
   const masterData = await getMasterData()
   const logs = await getWorkLogs()
