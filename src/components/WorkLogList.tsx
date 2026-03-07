@@ -55,10 +55,10 @@ export default function WorkLogList({ logs, products }: Props) {
                     <p style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>記録が見つかりません</p>
                 ) : (
                     filteredLogs.map((log) => (
-                        <div key={log.id} className="log-item glass-light">
+                        <div key={log.id} className="log-item glass-light" style={{ position: 'relative' }}>
                             <div className={`status-indicator ${log.status === '完了' ? 'status-completed' : 'status-ongoing'}`}></div>
                             <div className="log-details">
-                                <div className="log-main-info">
+                                <div className="log-main-info" data-label="日時">
                                     <span className="log-date">{new Date(log.date).toLocaleDateString('ja-JP')}</span>
                                     <h3 className="log-product-part">
                                         <span className="product-name">{log.product?.name}</span>
@@ -68,32 +68,32 @@ export default function WorkLogList({ logs, products }: Props) {
                                     </h3>
                                 </div>
                                 <div className="log-meta">
-                                    <div className="meta-item">
-                                        <span className="meta-label">工程</span>
+                                    <div className="meta-item" data-label="工程">
+                                        <span className="meta-label mobile-hide">工程</span>
                                         <span className="meta-value">{log.process?.name}</span>
                                     </div>
-                                    <div className="meta-item">
-                                        <span className="meta-label">担当者</span>
+                                    <div className="meta-item" data-label="担当者">
+                                        <span className="meta-label mobile-hide">担当者</span>
                                         <span className="meta-value">{log.user?.name}</span>
                                     </div>
-                                    <div className="meta-item">
-                                        <span className="meta-label">時間</span>
+                                    <div className="meta-item" data-label="時間">
+                                        <span className="meta-label mobile-hide">時間</span>
                                         <span className="meta-value">{log.startTime} 〜 {log.endTime || '-'}</span>
                                     </div>
-                                    <div className="meta-item">
-                                        <span className="meta-label">所要時間</span>
+                                    <div className="meta-item" data-label="所要時間">
+                                        <span className="meta-label mobile-hide">所要時間</span>
                                         <span className="meta-value" style={{ fontWeight: 'bold', color: 'var(--primary)' }}>
                                             {log.duration !== null ? `${log.duration}分` : '-'}
                                         </span>
                                     </div>
                                 </div>
                                 {log.remarks && (
-                                    <div className="log-remarks">
+                                    <div className="log-remarks" data-label="備考">
                                         <span className="remarks-icon">💬</span> {log.remarks}
                                     </div>
                                 )}
                             </div>
-                            <div className="log-status-badge" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem' }}>
+                            <div className="log-status-badge" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem' }} data-label="状態">
                                 <span className={`badge ${log.status === '完了' ? 'badge-success' : 'badge-warning'}`}>
                                     {log.status}
                                 </span>
