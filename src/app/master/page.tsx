@@ -1,4 +1,5 @@
 import MasterManagement from '@/components/MasterManagement'
+import MasterGuard from '@/components/MasterGuard'
 import { getMasterData } from '@/lib/actions'
 import Link from 'next/link'
 
@@ -21,7 +22,9 @@ export default async function Page() {
                 </div>
             </header>
 
-            <MasterManagement masterData={masterData} />
+            <MasterGuard>
+                <MasterManagement masterData={masterData} />
+            </MasterGuard>
         </main>
     )
 }
