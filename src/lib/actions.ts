@@ -449,7 +449,7 @@ export async function getLotSummaryData() {
         })
 
         // Sort outer array by the most recent date found in `dates`
-        return result.sort((a, b) => {
+        return result.sort((a: any, b: any) => {
             const dateA = a.dates[0]?.date || ''
             const dateB = b.dates[0]?.date || ''
             return dateB.localeCompare(dateA)
