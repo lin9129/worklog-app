@@ -2,6 +2,7 @@
 
 import { prisma } from './prisma'
 import { revalidatePath } from 'next/cache'
+import { calculateDuration } from './timeUtils'
 
 // Master Data
 export async function getMasterData() {
@@ -14,11 +15,11 @@ export async function getMasterData() {
             }),
             prisma.process.findMany({
                 orderBy: { name: 'asc' },
-                include: { products: true }
+                include: { products: { select: { id: true, name: true } } }
             }),
             prisma.part.findMany({
                 orderBy: { name: 'asc' },
-                include: { product: true }
+                include: { product: { select: { id: true, name: true } } }
             }),
         ])
         return { users, products, processes, parts }
@@ -36,7 +37,8 @@ export async function createMasterItem(type: 'user' | 'product' | 'process' | 'p
                 await prisma.user.create({
                     data: {
                         name: data.name,
-                        employmentType: data.employmentType || null
+                        employmentType: data.employmentType || null,
+                        department: data.department || null
                     }
                 })
                 break
@@ -44,6 +46,8 @@ export async function createMasterItem(type: 'user' | 'product' | 'process' | 'p
                 await prisma.product.create({
                     data: {
                         name: data.name,
+                        category: data.category || null,
+                        department: data.department || null,
                         processes: { connect: data.processIds?.map((id: string) => ({ id })) || [] }
                     }
                 })
@@ -82,7 +86,8 @@ export async function updateMasterItem(type: 'user' | 'product' | 'process' | 'p
                     where: { id },
                     data: {
                         name: data.name,
-                        employmentType: data.employmentType || null
+                        employmentType: data.employmentType || null,
+                        department: data.department || null
                     }
                 })
                 break
@@ -91,6 +96,8 @@ export async function updateMasterItem(type: 'user' | 'product' | 'process' | 'p
                     where: { id },
                     data: {
                         name: data.name,
+                        category: data.category || null,
+                        department: data.department || null,
                         processes: { set: data.processIds?.map((id: string) => ({ id })) || [] }
                     }
                 })
@@ -138,14 +145,88 @@ export async function deleteMasterItem(type: 'user' | 'product' | 'process' | 'p
     }
 }
 
-export async function deleteWorkLog(id: string) {
+// Production Slip CRUD (Robust Implementation using findUnique)
+export async function upsertProductionSlip(data: any): Promise<{ success: boolean; error?: string }> {
+    console.log('--- Production Slip Upsert Start ---')
     try {
-        await prisma.workLog.delete({ where: { id } })
+        const lotNumber = String(data.lotNumber || '').trim()
+        if (!lotNumber) return { success: false, error: 'ロット番号が空です' }
+
+        const productId = (data.productId as string | null) || null
+        const manualName = (data.manualProductName as string | null) || null
+        const customerName = (data.customerName as string | null) || null
+        const productionCount = data.productionCount ? parseInt(String(data.productionCount)) : null
+        const remarks = (data.remarks as string | null) || null
+        const deliveryDateStr = data.deliveryDate as string | null
+        const department = (data.department as string | null) || null
+
+        let deliveryDate = null
+        if (deliveryDateStr) {
+            const d = new Date(deliveryDateStr)
+            if (!isNaN(d.getTime())) {
+                deliveryDate = d
+            }
+        }
+
+        console.log('Processing for lotNumber:', lotNumber)
+
+        // Find existing by lotNumber
+        const existing = await prisma.lotSummary.findUnique({
+            where: { lotNumber }
+        })
+
+        const updateData = {
+            productId,
+            manualProductName: manualName,
+            customerName,
+            productionCount,
+            remarks,
+            deliveryDate,
+            department
+        }
+
+        if (existing) {
+            console.log('Updating existing record:', existing.id)
+            await prisma.lotSummary.update({
+                where: { lotNumber },
+                data: updateData
+            })
+        } else {
+            console.log('Creating new record')
+            await prisma.lotSummary.create({
+                data: {
+                    lotNumber,
+                    ...updateData
+                }
+            })
+        }
+
+        revalidatePath('/production-slips')
         revalidatePath('/')
-        revalidatePath('/lot-summary')
+        console.log('--- Production Slip Upsert Success ---')
+        return { success: true }
     } catch (error: any) {
-        console.error('Failed to delete work log:', error)
-        throw new Error(`作業記録の削除に失敗しました: ${error?.message || error}`)
+        console.error('--- Production Slip Upsert Failed ---')
+        console.error('Error name:', error?.name)
+        console.error('Error message:', error?.message)
+        if (error?.code) console.error('Prisma Error Code:', error.code)
+        return { success: false, error: error?.message || '不明なエラー' }
+    }
+}
+
+export async function getActiveProductionSlips(department?: string) {
+    try {
+        const where: any = { isCompleted: false }
+        if (department) where.department = department
+
+        return await prisma.lotSummary.findMany({
+            where,
+            include: { product: true },
+            orderBy: { createdAt: 'desc' }
+        })
+    } catch (error) {
+        console.error('Failed to fetch production slips:', error)
+        throw new Error('Failed to fetch production slips')
     }
 }
 
@@ -156,7 +237,8 @@ export async function getWorkLogs(filters?: {
     lotNumber?: string,
     status?: string,
     startDate?: string,
-    endDate?: string
+    endDate?: string,
+    department?: string
 }) {
     try {
         const where: any = {}
@@ -164,10 +246,17 @@ export async function getWorkLogs(filters?: {
         if (filters?.productId) where.productId = filters.productId
         if (filters?.lotNumber) where.lotNumber = { contains: filters.lotNumber }
         if (filters?.status) where.status = filters.status
+        if (filters?.department) where.department = filters.department
         if (filters?.startDate || filters?.endDate) {
             where.date = {}
-            if (filters.startDate) where.date.gte = new Date(filters.startDate)
-            if (filters.endDate) where.date.lte = new Date(filters.endDate)
+            if (filters.startDate) {
+                const d = new Date(filters.startDate)
+                if (!isNaN(d.getTime())) where.date.gte = d
+            }
+            if (filters.endDate) {
+                const d = new Date(filters.endDate)
+                if (!isNaN(d.getTime())) where.date.lte = d
+            }
         }
 
         return await prisma.workLog.findMany({
@@ -188,86 +277,82 @@ export async function getWorkLogs(filters?: {
 
 export async function createWorkLog(formData: FormData) {
     const userId = formData.get('userId') as string
-    const productId = formData.get('productId') as string
-    const partId = formData.get('partId') as string
-    const processId = formData.get('processId') as string
-    const lotNumber = formData.get('lotNumber') as string
+    const productId = (formData.get('productId') as string | null) || null
+    const manualProductName = (formData.get('manualProductName') as string | null) || null
+    const customerName = formData.get('customerName') as string | null
+    const partId = (formData.get('partId') as string | null) || null
+    const processId = (formData.get('processId') as string | null) || null
+    const lotNumber = formData.get('lotNumber') as string | null
     const dateStr = formData.get('date') as string
     const startTime = formData.get('startTime') as string
-    const endTime = formData.get('endTime') as string
+    const endTime = formData.get('endTime') as string | null
     const status = (formData.get('status') as string) || '作業中'
-    const remarks = formData.get('remarks') as string
+    const remarks = formData.get('remarks') as string | null
+    const department = formData.get('department') as string | null
 
-    // Pre-flight validation
-    const missing: string[] = []
-    if (!userId) missing.push('担当者(userId)')
-    if (!productId) missing.push('商品名(productId)')
-    if (!partId) missing.push('部品名(partId)')
-    if (!processId) missing.push('工程(processId)')
-    if (!dateStr) missing.push('日付(date)')
-    if (!startTime) missing.push('開始時間(startTime)')
-
-    if (missing.length > 0) {
-        throw new Error(`必須項目が不足しています: ${missing.join(', ')}`)
+    if (!userId || !dateStr || !startTime) {
+        throw new Error('必須項目が不足しています（担当者、日付、開始時間）')
     }
 
-    // Duration calculation (in minutes)
     let duration = null
+    let overtimeDuration = null
     if (startTime && endTime) {
-        const [startH, startM] = startTime.split(':').map(Number)
-        const [endH, endM] = endTime.split(':').map(Number)
-        duration = (endH * 60 + endM) - (startH * 60 + startM)
-        if (duration < 0) duration += 24 * 60 // handles overnight
+        const result = calculateDuration(startTime, endTime)
+        duration = result.totalMinutes
+        overtimeDuration = result.overtimeMinutes
     }
 
     try {
-        // Try with lotNumber first
-        let newLog
-        try {
-            newLog = await (prisma.workLog as any).create({
-                data: {
-                    userId,
-                    productId,
-                    partId,
-                    processId,
-                    lotNumber: lotNumber || null,
-                    date: new Date(dateStr),
-                    startTime,
-                    endTime: endTime || null,
-                    duration,
-                    status,
-                    remarks: remarks || null,
-                }
+        await prisma.workLog.create({
+            data: {
+                userId,
+                productId,
+                manualProductName,
+                customerName,
+                partId,
+                processId,
+                lotNumber,
+                date: new Date(dateStr),
+                startTime,
+                endTime,
+                duration,
+                overtimeDuration,
+                status,
+                remarks,
+                department
+            }
+        })
+
+        // Also sync LotSummary if lotNumber is provided
+        if (lotNumber) {
+            const existing = await prisma.lotSummary.findUnique({
+                where: { lotNumber }
             })
-        } catch {
-            // Fallback: create without lotNumber, then update via raw SQL
-            newLog = await prisma.workLog.create({
-                data: {
-                    userId,
-                    productId,
-                    partId,
-                    processId,
-                    date: new Date(dateStr),
-                    startTime,
-                    endTime: endTime || null,
-                    duration,
-                    status,
-                    remarks: remarks || null,
-                }
-            })
-            if (lotNumber) {
-                try {
-                    await prisma.$executeRawUnsafe(
-                        `UPDATE "WorkLog" SET "lotNumber" = ? WHERE "id" = ?`,
+            if (existing) {
+                await prisma.lotSummary.update({
+                    where: { lotNumber },
+                    data: {
+                        productId: productId || existing.productId,
+                        manualProductName: manualProductName || existing.manualProductName,
+                        customerName: customerName || existing.customerName,
+                        department: department || existing.department
+                    }
+                })
+            } else {
+                await prisma.lotSummary.create({
+                    data: {
                         lotNumber,
-                        newLog.id
-                    )
-                } catch {
-                    // lotNumber update failed silently - not critical
-                }
+                        productId,
+                        manualProductName,
+                        customerName,
+                        department
+                    }
+                })
             }
         }
+
         revalidatePath('/')
+        revalidatePath('/lot-summary')
     } catch (error: any) {
         console.error('Failed to create work log:', error)
         throw new Error(`登録エラー: ${error?.message || error}`)
@@ -284,11 +369,11 @@ export async function updateWorkLog(id: string, formData: FormData) {
         if (!original) throw new Error('WorkLog not found')
 
         let duration = original.duration
+        let overtimeDuration = original.overtimeDuration
         if (original.startTime && endTime) {
-            const [startH, startM] = original.startTime.split(':').map(Number)
-            const [endH, endM] = endTime.split(':').map(Number)
-            duration = (endH * 60 + endM) - (startH * 60 + startM)
-            if (duration < 0) duration += 24 * 60
+            const result = calculateDuration(original.startTime, endTime)
+            duration = result.totalMinutes
+            overtimeDuration = result.overtimeMinutes
         }
 
         await prisma.workLog.update({
@@ -297,6 +382,7 @@ export async function updateWorkLog(id: string, formData: FormData) {
                 status,
                 endTime: endTime || null,
                 duration,
+                overtimeDuration,
                 remarks,
             }
         })
@@ -307,55 +393,53 @@ export async function updateWorkLog(id: string, formData: FormData) {
     }
 }
 
-// Dashboard Data
-export async function getDashboardData() {
+export async function deleteWorkLog(id: string) {
     try {
-        // Aggregate by Product
-        const productsData = await prisma.workLog.groupBy({
-            by: ['productId'],
-            _sum: { duration: true },
-        })
-        const productsWithNames = await Promise.all(productsData.map(async (item: { productId: string; _sum: { duration: number | null } }) => {
-            const product = await prisma.product.findUnique({ where: { id: item.productId } })
-            return { name: product?.name || 'Unknown', total: item._sum.duration || 0 }
-        }))
-
-        // Aggregate by User
-        const usersData = await prisma.workLog.groupBy({
-            by: ['userId'],
-            _sum: { duration: true },
-        })
-        const usersWithNames = await Promise.all(usersData.map(async (item: { userId: string; _sum: { duration: number | null } }) => {
-            const user = await prisma.user.findUnique({ where: { id: item.userId } })
-            return { name: user?.name || 'Unknown', total: item._sum.duration || 0 }
-        }))
-
-        // Aggregate by Lot Number (Product + Lot) - Manual aggregation to bypass Prisma field validation issues
-        const allLogs = await prisma.workLog.findMany()
-
-        const lotMap = new Map<string, number>()
-        for (const log of allLogs) {
-            const key = `${log.productId}|${log.lotNumber || ''}`
-            lotMap.set(key, (lotMap.get(key) || 0) + (log.duration || 0))
-        }
-
-        const lotsWithNames = await Promise.all(
-            Array.from(lotMap.entries()).map(async ([key, total]) => {
-                const [pid, lot] = key.split('|')
-                const product = await prisma.product.findUnique({ where: { id: pid } })
-                const label = `${product?.name || 'Unknown'} (${lot || 'No Lot'})`
-                return { name: label, total }
-            })
-        )
-
-        return { products: productsWithNames, users: usersWithNames, lots: lotsWithNames }
-    } catch (error) {
-        console.error('Failed to fetch dashboard data:', error)
-        throw new Error('Failed to fetch dashboard data')
+        await prisma.workLog.delete({ where: { id } })
+        revalidatePath('/')
+        revalidatePath('/lot-summary')
+    } catch (error: any) {
+        console.error('Failed to delete work log:', error)
+        throw new Error(`作業記録の削除に失敗しました: ${error?.message || error}`)
     }
 }
 
-// Lot Summary
+// Dashboard Data
+export async function getDashboardData() {
+    try {
+        const allLogs = await prisma.workLog.findMany({
+            include: { product: true, user: true }
+        })
+
+        const productMap = new Map<string, number>()
+        const userMap = new Map<string, number>()
+        const lotMap = new Map<string, number>()
+
+        for (const log of allLogs) {
+            const duration = log.duration || 0
+
+            const pName = log.product?.name || log.manualProductName || 'その他'
+            productMap.set(pName, (productMap.get(pName) || 0) + duration)
+
+            const uName = log.user?.name || '不明'
+            userMap.set(uName, (userMap.get(uName) || 0) + duration)
+
+            const lotKey = `${pName} (${log.lotNumber || 'No Lot'})`
+            lotMap.set(lotKey, (lotMap.get(lotKey) || 0) + duration)
+        }
+
+        return {
+            products: Array.from(productMap.entries()).map(([name, total]) => ({ name, total })),
+            users: Array.from(userMap.entries()).map(([name, total]) => ({ name, total })),
+            lots: Array.from(lotMap.entries()).map(([name, total]) => ({ name, total }))
+        }
+    } catch (error) {
+        console.error('Failed to fetch dashboard data:', error)
+        return { products: [], users: [], lots: [] }
+    }
+}
+
+// Lot Summary & Analytics
 export async function getLotSummaryData() {
     try {
         const logs = await prisma.workLog.findMany({
@@ -363,129 +447,81 @@ export async function getLotSummaryData() {
             orderBy: { date: 'desc' }
         })
 
-        const lotSummaries = await prisma.lotSummary.findMany()
+        const summaries = await prisma.lotSummary.findMany({
+            include: { product: true }
+        })
 
-        const grouped = new Map<string, any>()
+        const result = summaries.map((s: any) => {
+            // Match logs by lotNumber only (simpler, more reliable)
+            const lotLogs = logs.filter((l: any) => l.lotNumber === s.lotNumber)
 
-        for (const log of logs) {
-            const lot = log.lotNumber || ''
-            const pid = log.productId
+            const totalDuration = lotLogs.reduce((acc: number, l: any) => acc + (l.duration || 0), 0)
+            const totalOvertime = lotLogs.reduce((acc: number, l: any) => acc + (l.overtimeDuration || 0), 0)
 
-            // Skip logs without a product
-            if (!pid || !log.product) continue
-
-            const key = `${lot}|${pid}`
-            if (!grouped.has(key)) {
-                // Find matching manual summary (ignoring date)
-                const summary = lotSummaries.find(
-                    (s: any) => s.lotNumber === lot && s.productId === pid
-                )
-
-                grouped.set(key, {
-                    lotNumber: lot,
-                    productId: pid,
-                    productName: log.product.name,
-                    totalDuration: 0,
-                    fullTimeDuration: 0,
-                    partTimeDuration: 0,
-                    userDurations: new Map<string, { name: string, duration: number }>(),
-                    productionCount: summary?.productionCount ?? null,
-                    productionTime: summary?.productionTime ?? null,
-                    datesMap: new Map<string, any>()
-                })
-            }
-
-            const group = grouped.get(key)
-            const duration = log.duration || 0
-            group.totalDuration += duration
-
-            // Summarize by employment type
-            if (log.user?.employmentType === '正社員') {
-                group.fullTimeDuration += duration
-            } else if (log.user?.employmentType === 'パート') {
-                group.partTimeDuration += duration
-            }
-
-            // Summarize by user
-            if (log.user) {
-                if (!group.userDurations.has(log.user.id)) {
-                    group.userDurations.set(log.user.id, { name: log.user.name, duration: 0 })
+            const userMap = new Map<string, { name: string, duration: number, overtime: number }>()
+            lotLogs.forEach((l: any) => {
+                if (!l.user) return
+                if (!userMap.has(l.user.id)) {
+                    userMap.set(l.user.id, { name: l.user.name, duration: 0, overtime: 0 })
                 }
-                const userSum = group.userDurations.get(log.user.id)
-                userSum.duration += duration
-            }
+                const u = userMap.get(l.user.id)!
+                u.duration += (l.duration || 0)
+                u.overtime += (l.overtimeDuration || 0)
+            })
 
-            const dateStr = log.date.toISOString().split('T')[0]
-            if (!group.datesMap.has(dateStr)) {
-                group.datesMap.set(dateStr, {
-                    date: dateStr,
-                    dailyDuration: 0,
-                    logs: []
-                })
-            }
-
-            const dateGroup = group.datesMap.get(dateStr)
-            dateGroup.dailyDuration += duration
-            dateGroup.logs.push(log)
-        }
-
-        // Convert nested maps to arrays and sort by recent active date
-        const result = Array.from(grouped.values()).map(g => {
-            const datesArr = Array.from(g.datesMap.values()).sort((a: any, b: any) => b.date.localeCompare(a.date))
-            const usersArr = Array.from(g.userDurations.values()).sort((a: any, b: any) => b.duration - a.duration)
+            const datesMap = new Map<string, { date: string, dailyDuration: number, dailyOvertime: number, logs: any[] }>()
+            lotLogs.forEach((l: any) => {
+                const d = l.date.toISOString().split('T')[0]
+                if (!datesMap.has(d)) {
+                    datesMap.set(d, { date: d, dailyDuration: 0, dailyOvertime: 0, logs: [] })
+                }
+                const dg = datesMap.get(d)!
+                dg.dailyDuration += (l.duration || 0)
+                dg.dailyOvertime += (l.overtimeDuration || 0)
+                dg.logs.push(l)
+            })
 
             return {
-                lotNumber: g.lotNumber,
-                productId: g.productId,
-                productName: g.productName,
-                totalDuration: g.totalDuration,
-                fullTimeDuration: g.fullTimeDuration,
-                partTimeDuration: g.partTimeDuration,
-                users: usersArr,
-                productionCount: g.productionCount,
-                productionTime: g.productionTime,
-                dates: datesArr
+                id: s.id,
+                lotNumber: s.lotNumber,
+                productId: s.productId,
+                productName: s.product?.name || s.manualProductName || '未設定',
+                customerName: s.customerName,
+                productionCount: s.productionCount,
+                deliveryDate: s.deliveryDate,
+                remarks: s.remarks,
+                isCompleted: s.isCompleted,
+                completedAt: s.completedAt,
+                totalDuration,
+                totalOvertime,
+                users: Array.from(userMap.values()),
+                dates: Array.from(datesMap.values()).sort((a, b) => b.date.localeCompare(a.date))
             }
         })
 
-        // Sort outer array by the most recent date found in `dates`
         return result.sort((a: any, b: any) => {
-            const dateA = a.dates[0]?.date || ''
-            const dateB = b.dates[0]?.date || ''
-            return dateB.localeCompare(dateA)
+            if (a.isCompleted && !b.isCompleted) return 1
+            if (!a.isCompleted && b.isCompleted) return -1
+            return (b.completedAt?.getTime() || 0) - (a.completedAt?.getTime() || 0) || b.lotNumber.localeCompare(a.lotNumber)
         })
-
     } catch (error) {
-        console.error('Failed to fetch lot summary data:', error)
-        throw new Error('集計データの取得に失敗しました')
+        console.error('Lot summary failed:', error)
+        return []
     }
 }
 
-export async function saveLotSummary(lotNumber: string, productId: string, productionCount: number | null, productionTime: number | null) {
+export async function completeLot(id: string) {
     try {
-        const safeLotNumber = lotNumber || '' // Ensure lotNumber is not null for indexing
-
-        await prisma.lotSummary.upsert({
-            where: {
-                lotNumber_productId: {
-                    lotNumber: safeLotNumber,
-                    productId
-                }
-            },
-            update: {
-                productionCount,
-                productionTime
-            },
-            create: {
-                lotNumber: safeLotNumber,
-                productId,
-                productionCount,
-                productionTime
+        await prisma.lotSummary.update({
+            where: { id },
+            data: {
+                isCompleted: true,
+                completedAt: new Date()
             }
         })
         revalidatePath('/lot-summary')
-    } catch (error: any) {
-        console.error('Failed to save lot summary:', error)
-        throw new Error(`保存エラー: ${error?.message || error}`)
+        revalidatePath('/completed-products')
+    } catch (error) {
+        console.error('Complete failed:', error)
     }
 }
