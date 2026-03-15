@@ -1,35 +1,43 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  output          = "../node_modules/.prisma/client"
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model User {
   id             String    @id @default(cuid())
   name           String    @unique
-  employmentType String?   // 正社員 or パート
+  employmentType String?
+  department     String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
   workLogs       WorkLog[]
 }
 
 model Product {
-  id              String             @id @default(cuid())
-  name            String             @unique
-  parts           Part[]
-  processes       Process[]
-  workLogs        WorkLog[]
-  lotSummaries    LotSummary[]
+  id           String       @id @default(cuid())
+  name         String       @unique
+  category     String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  lotSummaries LotSummary[]
+  parts        Part[]
+  workLogs     WorkLog[]
+  processes    Process[]    @relation("ProcessToProduct")
 }
 
 model Process {
   id        String    @id @default(cuid())
   name      String    @unique
-  products  Product[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   workLogs  WorkLog[]
+  products  Product[] @relation("ProcessToProduct")
 }
 
 model Part {
@@ -37,51 +45,54 @@ model Part {
   name              String    @unique
   modelNumber       String?
   description       String?
-  componentCategory String?   // 所属部材 (屋根, 胴, 扉, 高欄)
-  
-  product           Product   @relation(fields: [productId], references: [id])
+  componentCategory String?
   productId         String
-
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  product           Product   @relation(fields: [productId], references: [id])
   workLogs          WorkLog[]
 }
 
 model WorkLog {
-  id        String   @id @default(cuid())
-  date      DateTime @default(now())
-  
-  product   Product  @relation(fields: [productId], references: [id])
-  productId String
-
-  part      Part     @relation(fields: [partId], references: [id])
-  partId    String
-
-  process   Process  @relation(fields: [processId], references: [id])
-  processId String
-
-  user      User     @relation(fields: [userId], references: [id])
-  userId    String
-  lotNumber String?
-
-  startTime String
-  endTime   String?
-  duration  Int?     // Duration in minutes
-  status    String   @default("作業中")
-  remarks   String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                String   @id @default(cuid())
+  date              DateTime @default(now())
+  productId         String?
+  partId            String?
+  processId         String?
+  userId            String
+  lotNumber         String?
+  startTime         String
+  endTime           String?
+  duration          Int?
+  overtimeDuration  Int?
+  status            String   @default("作業中")
+  remarks           String?
+  manualProductName String?
+  customerName      String?
+  department        String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  interruptionTime  Int?     @default(0)
+  part              Part?    @relation(fields: [partId], references: [id])
+  process           Process? @relation(fields: [processId], references: [id])
+  product           Product? @relation(fields: [productId], references: [id])
+  user              User     @relation(fields: [userId], references: [id])
 }
 
 model LotSummary {
-  id              String   @id @default(cuid())
-  lotNumber       String   // ロット番号
-  productId       String
-  product         Product  @relation(fields: [productId], references: [id])
-  productionCount Int?     // 制作台数 (手入力)
-  productionTime  Int?     // 制作時間 (手入力・分単位)
-
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  @@unique([lotNumber, productId])
+  id                String    @id @default(cuid())
+  lotNumber         String    @unique
+  productId         String?
+  manualProductName String?
+  customerName      String?
+  productionCount   Int?
+  productionTime    Int?
+  remarks           String?
+  deliveryDate      DateTime?
+  department        String?
+  isCompleted       Boolean   @default(false)
+  completedAt       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  product           Product?  @relation(fields: [productId], references: [id])
 }
