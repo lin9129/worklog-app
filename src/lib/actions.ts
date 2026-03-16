@@ -7,7 +7,7 @@ import { calculateDuration } from './timeUtils'
 // Master Data
 export async function getMasterData() {
     try {
-        const [users, products, processes, parts] = await Promise.all([
+        const [usersRaw, products, processes, parts] = await Promise.all([
             prisma.user.findMany({ orderBy: { name: 'asc' } }),
             prisma.product.findMany({
                 orderBy: { name: 'asc' },
@@ -22,6 +22,15 @@ export async function getMasterData() {
                 include: { product: { select: { id: true, name: true } } }
             }),
         ])
+
+        const DEPT_ORDER: Record<string, number> = { '第一': 1, '第二': 2, '第三': 3, '第四': 4 };
+        const users = usersRaw.sort((a: any, b: any) => {
+            const orderA = DEPT_ORDER[a.department || ''] || 99;
+            const orderB = DEPT_ORDER[b.department || ''] || 99;
+            if (orderA !== orderB) return orderA - orderB;
+            return a.name.localeCompare(b.name, 'ja');
+        });
+
         return { users, products, processes, parts }
     } catch (error) {
         console.error('Failed to fetch master data:', error)
@@ -47,14 +56,17 @@ export async function createMasterItem(type: 'user' | 'product' | 'process' | 'p
                     data: {
                         name: data.name,
                         category: data.category || null,
-                        department: data.department || null,
+                        // department: data.department || null, // 削除
                         processes: { connect: data.processIds?.map((id: string) => ({ id })) || [] }
                     }
                 })
                 break
             case 'process': {
                 await prisma.process.create({
-                    data: { name: data.name }
+                    data: {
+                        name: data.name,
+                        products: { connect: data.productIds?.map((id: string) => ({ id })) || [] }
+                    }
                 })
                 break
             }
@@ -97,7 +109,7 @@ export async function updateMasterItem(type: 'user' | 'product' | 'process' | 'p
                     data: {
                         name: data.name,
                         category: data.category || null,
-                        department: data.department || null,
+                        // department: data.department || null, // 削除
                         processes: { set: data.processIds?.map((id: string) => ({ id })) || [] }
                     }
                 })
@@ -105,7 +117,10 @@ export async function updateMasterItem(type: 'user' | 'product' | 'process' | 'p
             case 'process': {
                 await prisma.process.update({
                     where: { id },
-                    data: { name: data.name }
+                    data: {
+                        name: data.name,
+                        products: { set: data.productIds?.map((id: string) => ({ id })) || [] }
+                    }
                 })
                 break
             }
@@ -152,10 +167,12 @@ export async function upsertProductionSlip(data: any): Promise<{ success: boolea
         const lotNumber = String(data.lotNumber || '').trim()
         if (!lotNumber) return { success: false, error: 'ロット番号が空です' }
 
+        const id = data.id as string | null
         const productId = (data.productId as string | null) || null
         const manualName = (data.manualProductName as string | null) || null
         const customerName = (data.customerName as string | null) || null
         const productionCount = data.productionCount ? parseInt(String(data.productionCount)) : null
+        const productionTime = data.productionTime ? parseInt(String(data.productionTime)) : null
         const remarks = (data.remarks as string | null) || null
         const deliveryDateStr = data.deliveryDate as string | null
         const department = (data.department as string | null) || null
@@ -168,36 +185,39 @@ export async function upsertProductionSlip(data: any): Promise<{ success: boolea
             }
         }
 
-        console.log('Processing for lotNumber:', lotNumber)
-
-        // Find existing by lotNumber
-        const existing = await prisma.lotSummary.findUnique({
-            where: { lotNumber }
-        })
-
         const updateData = {
+            lotNumber,
             productId,
             manualProductName: manualName,
             customerName,
             productionCount,
+            productionTime,
             remarks,
             deliveryDate,
-            department
+            department,
+            isCompleted: false, // 登録・更新したら「製作中」にする
+            completedAt: null
         }
 
-        if (existing) {
-            console.log('Updating existing record:', existing.id)
+        if (id) {
+            // Edit mode: Update by ID
+            console.log('Updating existing record by ID:', id)
             await prisma.lotSummary.update({
-                where: { lotNumber },
+                where: { id },
                 data: updateData
             })
         } else {
+            // Create mode: Check for duplicate lotNumber first
+            const existing = await prisma.lotSummary.findUnique({
+                where: { lotNumber }
+            })
+            if (existing) {
+                return { success: false, error: `ロット番号「${lotNumber}」は既に登録されています。既存の伝票を修正するか、別の番号を入力してください。` }
+            }
+
             console.log('Creating new record')
             await prisma.lotSummary.create({
-                data: {
-                    lotNumber,
-                    ...updateData
-                }
+                data: updateData
             })
         }
 
@@ -207,9 +227,6 @@ export async function upsertProductionSlip(data: any): Promise<{ success: boolea
         return { success: true }
     } catch (error: any) {
         console.error('--- Production Slip Upsert Failed ---')
-        console.error('Error name:', error?.name)
-        console.error('Error message:', error?.message)
-        if (error?.code) console.error('Prisma Error Code:', error.code)
         return { success: false, error: error?.message || '不明なエラー' }
     }
 }
@@ -281,7 +298,7 @@ export async function createWorkLog(formData: FormData) {
     const manualProductName = (formData.get('manualProductName') as string | null) || null
     const customerName = formData.get('customerName') as string | null
     const partId = (formData.get('partId') as string | null) || null
-    const processId = (formData.get('processId') as string | null) || null
+    const processName = (formData.get('processName') as string | null) || null
     const lotNumber = formData.get('lotNumber') as string | null
     const dateStr = formData.get('date') as string
     const startTime = formData.get('startTime') as string
@@ -289,6 +306,7 @@ export async function createWorkLog(formData: FormData) {
     const status = (formData.get('status') as string) || '作業中'
     const remarks = formData.get('remarks') as string | null
     const department = formData.get('department') as string | null
+    const interruptionTime = parseInt(formData.get('interruptionTime') as string || '0')
 
     if (!userId || !dateStr || !startTime) {
         throw new Error('必須項目が不足しています（担当者、日付、開始時間）')
@@ -297,9 +315,19 @@ export async function createWorkLog(formData: FormData) {
     let duration = null
     let overtimeDuration = null
     if (startTime && endTime) {
-        const result = calculateDuration(startTime, endTime)
+        const result = calculateDuration(startTime, endTime, interruptionTime)
         duration = result.totalMinutes
         overtimeDuration = result.overtimeMinutes
+    }
+
+    let processId = (formData.get('processId') as string | null) || null
+    if (processName) {
+        const proc = await prisma.process.upsert({
+            where: { name: processName },
+            update: {},
+            create: { name: processName }
+        })
+        processId = proc.id
     }
 
     try {
@@ -317,6 +345,7 @@ export async function createWorkLog(formData: FormData) {
                 endTime,
                 duration,
                 overtimeDuration,
+                interruptionTime,
                 status,
                 remarks,
                 department
@@ -362,6 +391,7 @@ export async function createWorkLog(formData: FormData) {
 export async function updateWorkLog(id: string, formData: FormData) {
     const status = formData.get('status') as string
     const endTime = formData.get('endTime') as string
+    const interruptionTime = parseInt(formData.get('interruptionTime') as string || '0')
     const remarks = formData.get('remarks') as string
 
     try {
@@ -371,7 +401,7 @@ export async function updateWorkLog(id: string, formData: FormData) {
         let duration = original.duration
         let overtimeDuration = original.overtimeDuration
         if (original.startTime && endTime) {
-            const result = calculateDuration(original.startTime, endTime)
+            const result = calculateDuration(original.startTime, endTime, interruptionTime)
             duration = result.totalMinutes
             overtimeDuration = result.overtimeMinutes
         }
@@ -383,6 +413,7 @@ export async function updateWorkLog(id: string, formData: FormData) {
                 endTime: endTime || null,
                 duration,
                 overtimeDuration,
+                interruptionTime,
                 remarks,
             }
         })
@@ -407,9 +438,31 @@ export async function deleteWorkLog(id: string) {
 // Dashboard Data
 export async function getDashboardData() {
     try {
+        // includeを使わず、個別にWorkLogを取得してnullのIDに安全に対応する
         const allLogs = await prisma.workLog.findMany({
-            include: { product: true, user: true }
+            select: {
+                id: true,
+                productId: true,
+                userId: true,
+                lotNumber: true,
+                duration: true,
+                manualProductName: true,
+            }
         })
+
+        // 有効なIDのみでproductとuserを一括取得
+        const validProductIds = [...new Set(allLogs.map((l) => l.productId).filter((id): id is string => typeof id === 'string' && id.length > 0))]
+        const validUserIds = [...new Set(allLogs.map((l) => l.userId).filter((id): id is string => typeof id === 'string' && id.length > 0))]
+
+        const products = validProductIds.length > 0
+            ? await prisma.product.findMany({ where: { id: { in: validProductIds } }, select: { id: true, name: true } })
+            : ([] as { id: string, name: string }[])
+        const users = validUserIds.length > 0
+            ? await prisma.user.findMany({ where: { id: { in: validUserIds } }, select: { id: true, name: true } })
+            : ([] as { id: string, name: string }[])
+
+        const productNamesById = new Map<string, string>(products.map((p) => [p.id, p.name]))
+        const userNamesById = new Map<string, string>(users.map((u) => [u.id, u.name]))
 
         const productMap = new Map<string, number>()
         const userMap = new Map<string, number>()
@@ -418,10 +471,10 @@ export async function getDashboardData() {
         for (const log of allLogs) {
             const duration = log.duration || 0
 
-            const pName = log.product?.name || log.manualProductName || 'その他'
+            const pName: string = (log.productId ? productNamesById.get(log.productId) : undefined) || log.manualProductName || 'その他'
             productMap.set(pName, (productMap.get(pName) || 0) + duration)
 
-            const uName = log.user?.name || '不明'
+            const uName: string = (log.userId ? userNamesById.get(log.userId) : undefined) || '不明'
             userMap.set(uName, (userMap.get(uName) || 0) + duration)
 
             const lotKey = `${pName} (${log.lotNumber || 'No Lot'})`
@@ -458,15 +511,28 @@ export async function getLotSummaryData() {
             const totalDuration = lotLogs.reduce((acc: number, l: any) => acc + (l.duration || 0), 0)
             const totalOvertime = lotLogs.reduce((acc: number, l: any) => acc + (l.overtimeDuration || 0), 0)
 
-            const userMap = new Map<string, { name: string, duration: number, overtime: number }>()
+            const userMap = new Map<string, { name: string, duration: number, overtime: number, employmentType: string | null }>()
+            let fullTimeDuration = 0
+            let fullTimeOvertime = 0
+            let partTimeDuration = 0
+            let partTimeOvertime = 0
+
             lotLogs.forEach((l: any) => {
                 if (!l.user) return
                 if (!userMap.has(l.user.id)) {
-                    userMap.set(l.user.id, { name: l.user.name, duration: 0, overtime: 0 })
+                    userMap.set(l.user.id, { name: l.user.name, duration: 0, overtime: 0, employmentType: l.user.employmentType })
                 }
                 const u = userMap.get(l.user.id)!
                 u.duration += (l.duration || 0)
                 u.overtime += (l.overtimeDuration || 0)
+
+                if (l.user.employmentType === '正社員') {
+                    fullTimeDuration += (l.duration || 0)
+                    fullTimeOvertime += (l.overtimeDuration || 0)
+                } else if (l.user.employmentType === 'パート') {
+                    partTimeDuration += (l.duration || 0)
+                    partTimeOvertime += (l.overtimeDuration || 0)
+                }
             })
 
             const datesMap = new Map<string, { date: string, dailyDuration: number, dailyOvertime: number, logs: any[] }>()
@@ -488,12 +554,17 @@ export async function getLotSummaryData() {
                 productName: s.product?.name || s.manualProductName || '未設定',
                 customerName: s.customerName,
                 productionCount: s.productionCount,
+                productionTime: s.productionTime,
                 deliveryDate: s.deliveryDate,
                 remarks: s.remarks,
                 isCompleted: s.isCompleted,
                 completedAt: s.completedAt,
                 totalDuration,
                 totalOvertime,
+                fullTimeDuration,
+                fullTimeOvertime,
+                partTimeDuration,
+                partTimeOvertime,
                 users: Array.from(userMap.values()),
                 dates: Array.from(datesMap.values()).sort((a, b) => b.date.localeCompare(a.date))
             }
@@ -523,5 +594,19 @@ export async function completeLot(id: string) {
         revalidatePath('/completed-products')
     } catch (error) {
         console.error('Complete failed:', error)
+    }
+}
+
+export async function deleteLotSummary(id: string) {
+    try {
+        await prisma.lotSummary.delete({
+            where: { id }
+        })
+        revalidatePath('/lot-summary')
+        revalidatePath('/completed-products')
+        return { success: true }
+    } catch (error: any) {
+        console.error('Delete lot summary failed:', error)
+        throw new Error(`製作記録の削除に失敗しました: ${error?.message || error}`)
     }
 }
