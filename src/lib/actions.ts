@@ -496,13 +496,42 @@ export async function getDashboardData() {
 export async function getLotSummaryData() {
     try {
         const logs = await prisma.workLog.findMany({
-            include: { user: true, process: true, part: true, product: true },
+            select: {
+                id: true, userId: true, productId: true, lotNumber: true,
+                date: true, startTime: true, endTime: true,
+                duration: true, overtimeDuration: true, remarks: true,
+                manualProductName: true, customerName: true, department: true
+            },
             orderBy: { date: 'desc' }
         })
 
+        const validUserIds = [...new Set(logs.map(l => l.userId).filter((id): id is string => typeof id === 'string' && id.trim().length > 0))]
+        const users = validUserIds.length > 0
+            ? await prisma.user.findMany({ where: { id: { in: validUserIds } } })
+            : []
+        const userMap = new Map(users.map(u => [u.id, u]))
+
+        // Build log user object mapping
+        const logsWithUser = logs.map(l => ({
+            ...l,
+            user: l.userId ? userMap.get(l.userId) : null
+        }))
+
         const summaries = await prisma.lotSummary.findMany({
-            include: { product: true }
+            select: {
+                id: true, lotNumber: true, productId: true,
+                manualProductName: true, customerName: true,
+                productionCount: true, productionTime: true,
+                deliveryDate: true, remarks: true, department: true,
+                isCompleted: true, completedAt: true, createdAt: true
+            }
         })
+
+        const validProductIds = [...new Set(summaries.map(s => s.productId).filter((id): id is string => typeof id === 'string' && id.trim().length > 0))]
+        const products = validProductIds.length > 0
+            ? await prisma.product.findMany({ where: { id: { in: validProductIds } }, select: { id: true, name: true } })
+            : []
+        const productMap = new Map(products.map(p => [p.id, p]))
 
         const result = summaries.map((s: any) => {
             // Match logs by lotNumber only (simpler, more reliable)
