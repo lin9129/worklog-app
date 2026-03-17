@@ -4,13 +4,13 @@ import LotSummaryView from '@/components/LotSummaryView'
 
 export const dynamic = 'force-dynamic'
 
-export default async function LotSummaryPage() {
+export default async function CompletedProductsPage() {
     let data: any[] = []
     let errorMsg = ''
     try {
         data = await getLotSummaryData()
     } catch (e: any) {
-        console.error('LotSummaryPage error:', e)
+        console.error('CompletedProductsPage error:', e)
         errorMsg = e?.message || '不明なエラー'
     }
 
@@ -19,12 +19,17 @@ export default async function LotSummaryPage() {
             <header style={{ marginBottom: '2rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
                     <div>
-                        <h1>ロット別集計</h1>
-                        <p style={{ color: 'var(--text-secondary)' }}>日付およびロット番号ごとの作業時間集計</p>
+                        <h1>✅ 商品完成表</h1>
+                        <p style={{ color: 'var(--text-secondary)' }}>完了済みのロット一覧と製作実績</p>
                     </div>
-                    <Link href="/" className="btn" style={{ background: 'rgba(255,255,255,0.1)' }}>
-                        ⬅️ ホームに戻る
-                    </Link>
+                    <div style={{ display: 'flex', gap: '1rem' }}>
+                        <Link href="/lot-summary" className="btn" style={{ background: 'rgba(255,255,255,0.1)' }}>
+                            📊 ロット集計に戻る
+                        </Link>
+                        <Link href="/" className="btn" style={{ background: 'rgba(255,255,255,0.1)' }}>
+                            ⬅️ ホーム
+                        </Link>
+                    </div>
                 </div>
             </header>
 
@@ -35,7 +40,7 @@ export default async function LotSummaryPage() {
                 </div>
             ) : (
                 <section>
-                    <LotSummaryView data={data} mode="ongoing" />
+                    <LotSummaryView data={data} mode="completed" />
                 </section>
             )}
         </div>

@@ -451,8 +451,8 @@ export async function getDashboardData() {
         })
 
         // 有効なIDのみでproductとuserを一括取得
-        const validProductIds = [...new Set(allLogs.map((l) => l.productId).filter((id): id is string => typeof id === 'string' && id.length > 0))]
-        const validUserIds = [...new Set(allLogs.map((l) => l.userId).filter((id): id is string => typeof id === 'string' && id.length > 0))]
+        const validProductIds = [...new Set(allLogs.map((l) => l.productId).filter((id): id is string => typeof id === 'string' && id.trim().length > 0))]
+        const validUserIds = [...new Set(allLogs.map((l) => l.userId).filter((id): id is string => typeof id === 'string' && id.trim().length > 0))]
 
         const products = validProductIds.length > 0
             ? await prisma.product.findMany({ where: { id: { in: validProductIds } }, select: { id: true, name: true } })

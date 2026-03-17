@@ -1,323 +1,195 @@
 'use client'
 
 import React, { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { saveLotSummary, deleteWorkLog } from '@/lib/actions'
+import { completeLot, deleteLotSummary } from '@/lib/actions'
 
 interface Props {
-    initialData: any[]
+    data: any[]
+    mode?: 'ongoing' | 'completed'
 }
 
-export default function LotSummaryView({ initialData }: Props) {
-    const router = useRouter()
-    const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
-    const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set())
-    const [expandedTimeRows, setExpandedTimeRows] = useState<Set<string>>(new Set())
-    const [savingKeys, setSavingKeys] = useState<Set<string>>(new Set())
+export default function LotSummaryView({ data, mode = 'ongoing' }: Props) {
+    const [expandedLot, setExpandedLot] = useState<string | null>(null)
 
-    // Local state for inputs to allow smooth typing before blur
-    const [inputValues, setInputValues] = useState<Record<string, { count: string, time: string }>>({})
+    // Filter by mode
+    const filteredData = data.filter(item => mode === 'completed' ? item.isCompleted : !item.isCompleted)
 
-    const toggleRow = (key: string) => {
-        const newSet = new Set(expandedRows)
-        if (newSet.has(key)) newSet.delete(key)
-        else newSet.add(key)
-        setExpandedRows(newSet)
+    const toggleExpand = (lotId: string) => {
+        setExpandedLot(expandedLot === lotId ? null : lotId)
     }
 
-    const toggleDate = (key: string) => {
-        const newSet = new Set(expandedDates)
-        if (newSet.has(key)) newSet.delete(key)
-        else newSet.add(key)
-        setExpandedDates(newSet)
-    }
-
-    const toggleTimeRow = (key: string) => {
-        const newSet = new Set(expandedTimeRows)
-        if (newSet.has(key)) newSet.delete(key)
-        else newSet.add(key)
-        setExpandedTimeRows(newSet)
-    }
-
-    const handleInputChange = (key: string, field: 'count' | 'time', value: string) => {
-        setInputValues(prev => ({
-            ...prev,
-            [key]: {
-                ...prev[key],
-                [field]: value
-            }
-        }))
-    }
-
-    const handleBlur = async (key: string, lotNumber: string, productId: string) => {
-        const currentVals = inputValues[key]
-        if (!currentVals) return // No changes
-
-        setSavingKeys(prev => new Set(prev).add(key))
-        try {
-            const count = currentVals.count ? parseInt(currentVals.count, 10) : null
-            const time = currentVals.time ? parseInt(currentVals.time, 10) : null
-            await saveLotSummary(lotNumber, productId, count, time)
-            router.refresh()
-        } catch (error) {
-            console.error('Failed to save summary:', error)
-            alert('保存に失敗しました')
-        } finally {
-            setSavingKeys(prev => {
-                const next = new Set(prev)
-                next.delete(key)
-                return next
-            })
+    const handleComplete = async (id: string, lotNum: string) => {
+        if (confirm(`ロット ${lotNum} を「完成」として登録しますか？`)) {
+            await completeLot(id)
+            alert('完成品表に移動しました')
         }
     }
 
-    const formatTime = (mins: number) => {
-        if (!mins) return '0時間00分'
-        const h = Math.floor(Math.abs(mins) / 60)
-        const m = Math.abs(mins) % 60
-        const sign = mins < 0 ? '-' : ''
-        return `${sign}${h}時間${m.toString().padStart(2, '0')}分`
+    const handleDelete = async (id: string, lotNum: string) => {
+        if (confirm(`ロット ${lotNum} の実績記録（集計行）を削除しますか？\n（個別の作業ログは削除されません）`)) {
+            await deleteLotSummary(id)
+            alert('削除しました')
+        }
     }
 
     return (
-        <div className="lot-summary-container glass animate-fade" style={{ padding: '2rem', marginTop: '2rem', overflowX: 'auto' }}>
-            <h2 className="card-title">ロット別 集計</h2>
-
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                <thead>
-                    <tr style={{ borderBottom: '2px solid var(--glass-border)', color: 'var(--primary)' }}>
-                        <th style={{ padding: '1rem 0.5rem', width: '40px' }}></th>
-                        <th style={{ padding: '1rem 0.5rem' }}>製作No</th>
-                        <th style={{ padding: '1rem 0.5rem' }}>商品名</th>
-                        <th style={{ padding: '1rem 0.5rem', width: '120px' }}>制作台数</th>
-                        <th style={{ padding: '1rem 0.5rem', width: '120px' }}>制作時間(分)</th>
-                        <th style={{ padding: '1rem 0.5rem' }}>実作業時間</th>
-                        <th style={{ padding: '1rem 0.5rem' }}>残り時間</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {initialData.map((group) => {
-                        const lotKey = `${group.lotNumber}|${group.productId}`
-                        const isExpanded = expandedRows.has(lotKey)
-                        const isTimeExpanded = expandedTimeRows.has(lotKey)
-                        const isSaving = savingKeys.has(lotKey)
-
-                        // Use local state if user is typing, else use server data
-                        const vals = inputValues[lotKey] || {
-                            count: group.productionCount !== null ? String(group.productionCount) : '',
-                            time: group.productionTime !== null ? String(group.productionTime) : ''
-                        }
-
-                        // Calculate remaining time
-                        const targetTime = vals.time ? parseInt(vals.time, 10) : 0
-                        const actualTime = group.totalDuration || 0
-                        const remainingTime = targetTime - actualTime
-
-                        return (
-                            <React.Fragment key={lotKey}>
-                                {/* Main Row (Lot + Product) */}
-                                <tr style={{ borderBottom: '1px solid var(--glass-border)' }}>
-                                    <td style={{ padding: '0.8rem 0.5rem' }}>
-                                        <button
-                                            onClick={() => toggleRow(lotKey)}
-                                            style={{
-                                                background: 'transparent', border: 'none', color: 'var(--primary)',
-                                                cursor: 'pointer', fontSize: '1.2rem', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                width: '30px', height: '30px', borderRadius: '50%'
-                                            }}
-                                            className="hover-bg"
-                                        >
-                                            {isExpanded ? '−' : '＋'}
-                                        </button>
-                                    </td>
-                                    <td style={{ padding: '0.8rem 0.5rem' }}>
-                                        <span className="badge" style={{ background: 'var(--glass-bg)', color: 'var(--text-primary)' }}>
-                                            {group.lotNumber || '未設定'}
-                                        </span>
-                                    </td>
-                                    <td style={{ padding: '0.8rem 0.5rem', fontWeight: 'bold' }}>{group.productName}</td>
-                                    <td style={{ padding: '0.8rem 0.5rem' }}>
-                                        <input
-                                            type="number"
-                                            value={vals.count}
-                                            onChange={(e) => handleInputChange(lotKey, 'count', e.target.value)}
-                                            onBlur={() => handleBlur(lotKey, group.lotNumber, group.productId)}
-                                            placeholder="0"
-                                            className="inline-input"
-                                            style={{ width: '80px', padding: '0.4rem', borderRadius: '6px', border: '1px solid var(--glass-border)', background: 'var(--bg-color)', color: 'var(--text-primary)' }}
-                                            disabled={isSaving}
-                                        />
-                                    </td>
-                                    <td style={{ padding: '0.8rem 0.5rem' }}>
-                                        <input
-                                            type="number"
-                                            value={vals.time}
-                                            onChange={(e) => handleInputChange(lotKey, 'time', e.target.value)}
-                                            onBlur={() => handleBlur(lotKey, group.lotNumber, group.productId)}
-                                            placeholder="0"
-                                            className="inline-input"
-                                            style={{ width: '80px', padding: '0.4rem', borderRadius: '6px', border: '1px solid var(--glass-border)', background: 'var(--bg-color)', color: 'var(--text-primary)' }}
-                                            disabled={isSaving}
-                                        />
-                                    </td>
-                                    <td style={{ padding: '0.8rem 0.5rem' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                            <span>{formatTime(actualTime)}</span>
-                                            <button
-                                                onClick={() => toggleTimeRow(lotKey)}
-                                                style={{
-                                                    background: 'transparent', border: 'none', color: 'var(--text-secondary)',
-                                                    cursor: 'pointer', fontSize: '0.9rem', padding: '0.2rem', borderRadius: '4px'
-                                                }}
-                                                className="hover-bg"
-                                                title="内訳を表示"
-                                            >
-                                                {isTimeExpanded ? '▲' : '▼'}
-                                            </button>
-                                        </div>
-                                    </td>
-                                    <td style={{ padding: '0.8rem 0.5rem', fontWeight: 'bold', color: remainingTime < 0 ? '#ff6b6b' : (remainingTime > 0 ? '#51cf66' : 'var(--text-primary)') }}>
-                                        {formatTime(remainingTime)}
-                                    </td>
-                                </tr>
-
-                                {/* Drill-down Time Breakdown */}
-                                {isTimeExpanded && (
-                                    <tr style={{ background: 'var(--glass-bg)' }}>
-                                        <td colSpan={7} style={{ padding: 0 }}>
-                                            <div style={{ padding: '1rem', borderBottom: '1px solid var(--glass-border)', display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
-
-                                                <div style={{ background: 'rgba(0,0,0,0.1)', padding: '1rem', borderRadius: '8px', minWidth: '200px' }}>
-                                                    <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>雇用形態別</h4>
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem', fontSize: '0.95rem' }}>
-                                                        <span>正社員:</span>
-                                                        <strong>{formatTime(group.fullTimeDuration || 0)}</strong>
-                                                    </div>
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.95rem' }}>
-                                                        <span>パート:</span>
-                                                        <strong>{formatTime(group.partTimeDuration || 0)}</strong>
-                                                    </div>
-                                                </div>
-
-                                                <div style={{ background: 'rgba(0,0,0,0.1)', padding: '1rem', borderRadius: '8px', minWidth: '300px', flex: 1 }}>
-                                                    <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>担当者別</h4>
-                                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '0.5rem' }}>
-                                                        {group.users?.map((u: any, idx: number) => (
-                                                            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.95rem', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '0.2rem' }}>
-                                                                <span>{u.name}</span>
-                                                                <strong>{formatTime(u.duration)}</strong>
-                                                            </div>
-                                                        ))}
-                                                        {!group.users?.length && (
-                                                            <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>担当者データなし</div>
-                                                        )}
-                                                    </div>
-                                                </div>
-
+        <div className="flex flex-col gap-6 animate-fade">
+            <div className="glass overflow-hidden" style={{ borderRadius: '24px' }}>
+                <table className="w-full text-left border-collapse">
+                    <thead style={{ background: 'rgba(255,255,255,0.05)' }}>
+                        <tr>
+                            <th className="p-4">ロット番号</th>
+                            <th className="p-4">商品名</th>
+                            <th className="p-4">お客様名</th>
+                            <th className="p-4">数量</th>
+                            <th className="p-4">合計時間</th>
+                            <th className="p-4">予定 / 残り</th>
+                            {mode === 'ongoing' ? (
+                                <>
+                                    <th className="p-4">納期</th>
+                                    <th className="p-4">アクション</th>
+                                </>
+                            ) : (
+                                <>
+                                    <th className="p-4">完成日</th>
+                                    <th className="p-4">製作実績</th>
+                                    <th className="p-4">アクション</th>
+                                </>
+                            )}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {filteredData.length === 0 ? (
+                            <tr>
+                                <td colSpan={7} className="p-8 text-center text-secondary">表示するデータがありません</td>
+                            </tr>
+                        ) : (
+                            filteredData.map((item) => (
+                                <React.Fragment key={item.id}>
+                                    <tr
+                                        onClick={() => toggleExpand(item.id)}
+                                        className="hover:bg-white/5 cursor-pointer border-t border-white/5 transition-colors"
+                                    >
+                                        <td className="p-4 font-bold">{item.lotNumber}</td>
+                                        <td className="p-4">
+                                            {item.productName}
+                                            {item.remarks && <div style={{ fontSize: '0.75rem', color: 'var(--secondary)' }}>{item.remarks}</div>}
+                                        </td>
+                                        <td className="p-4 text-primary font-medium">{item.customerName || '-'}</td>
+                                        <td className="p-4">{item.productionCount || 1}</td>
+                                        <td className="p-4">
+                                            <div className="font-bold">{(item.totalDuration / 60).toFixed(1)}h</div>
+                                            <div style={{ fontSize: '0.65rem', display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '4px' }}>
+                                                <span style={{ opacity: 0.8 }}>正: {(item.fullTimeDuration / 60).toFixed(1)}h</span>
+                                                <span style={{ opacity: 0.8 }}>パ: {(item.partTimeDuration / 60).toFixed(1)}h</span>
+                                                <span className="text-danger">残業: {(item.totalOvertime / 60).toFixed(1)}h</span>
                                             </div>
                                         </td>
-                                    </tr>
-                                )}
-
-                                {/* Drill-down Dates */}
-                                {isExpanded && group.dates.map((dateGroup: any) => {
-                                    const dateKey = `${lotKey}|${dateGroup.date}`
-                                    const isDateExpanded = expandedDates.has(dateKey)
-
-                                    return (
-                                        <React.Fragment key={dateKey}>
-                                            <tr style={{ background: 'var(--glass-bg)', borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
-                                                <td style={{ padding: '0.5rem' }}>
+                                        <td className="p-4">
+                                            {item.productionTime ? (
+                                                <>
+                                                    <div style={{ fontSize: '0.85rem', opacity: 0.8 }}>予定: {(item.productionTime / 60).toFixed(1)}h</div>
+                                                    <div className="font-bold" style={{ color: (item.productionTime - item.totalDuration) < 0 ? '#ff4d4d' : '#4ade80' }}>
+                                                        残り: {((item.productionTime - item.totalDuration) / 60).toFixed(1)}h
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                <span className="text-secondary">-</span>
+                                            )}
+                                        </td>
+                                        {mode === 'ongoing' ? (
+                                            <>
+                                                <td className="p-4" style={{ fontSize: '0.9rem' }}>
+                                                    {item.deliveryDate ? new Date(item.deliveryDate).toLocaleDateString() : '-'}
+                                                </td>
+                                                <td className="p-4">
                                                     <button
-                                                        onClick={() => toggleDate(dateKey)}
-                                                        style={{
-                                                            background: 'transparent', border: 'none', color: 'var(--text-secondary)',
-                                                            cursor: 'pointer', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                            width: '30px', height: '30px', marginLeft: '0.5rem'
-                                                        }}
+                                                        onClick={(e) => { e.stopPropagation(); handleComplete(item.id, item.lotNumber); }}
+                                                        className="btn btn-sm"
+                                                        style={{ background: 'var(--success)', color: 'white' }}
                                                     >
-                                                        {isDateExpanded ? '▼' : '▶'}
+                                                        ✅ 完了
                                                     </button>
                                                 </td>
-                                                <td colSpan={4} style={{ padding: '0.8rem 0.5rem', color: 'var(--text-secondary)', fontWeight: 500 }}>
-                                                    {dateGroup.date}
+                                            </>
+                                        ) : (
+                                            <>
+                                                <td className="p-4" style={{ fontSize: '0.9rem' }}>
+                                                    {item.completedAt ? new Date(item.completedAt).toLocaleDateString() : '-'}
                                                 </td>
-                                                <td style={{ padding: '0.8rem 0.5rem', color: 'var(--text-secondary)' }}>
-                                                    {formatTime(dateGroup.dailyDuration)}
+                                                <td className="p-4">
+                                                    <div className="font-bold">{(item.totalDuration / 60).toFixed(1)}h</div>
+                                                    <div style={{ fontSize: '0.65rem', display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '4px' }}>
+                                                        <span style={{ opacity: 0.8 }}>正: {(item.fullTimeDuration / 60).toFixed(1)}h</span>
+                                                        <span style={{ opacity: 0.8 }}>パ: {(item.partTimeDuration / 60).toFixed(1)}h</span>
+                                                        <span className="text-danger">残業: {(item.totalOvertime / 60).toFixed(1)}h</span>
+                                                    </div>
                                                 </td>
-                                                <td></td>
-                                            </tr>
-
-                                            {/* Drill-down Logs */}
-                                            {isDateExpanded && (
-                                                <tr>
-                                                    <td colSpan={7} style={{ padding: 0 }}>
-                                                        <div style={{ background: 'rgba(0,0,0,0.1)', padding: '1rem 1rem 1rem 4rem', borderBottom: '1px solid var(--glass-border)' }}>
-                                                            <table style={{ width: '100%', fontSize: '0.9rem' }}>
-                                                                <thead>
-                                                                    <tr style={{ color: 'var(--text-secondary)' }}>
-                                                                        <th style={{ padding: '0.5rem', textAlign: 'left' }}>担当者</th>
-                                                                        <th style={{ padding: '0.5rem', textAlign: 'left' }}>工程</th>
-                                                                        <th style={{ padding: '0.5rem', textAlign: 'left' }}>部品・部位</th>
-                                                                        <th style={{ padding: '0.5rem', textAlign: 'left' }}>開始時間</th>
-                                                                        <th style={{ padding: '0.5rem', textAlign: 'left' }}>終了時間</th>
-                                                                        <th style={{ padding: '0.5rem', textAlign: 'left' }}>作業時間</th>
-                                                                        <th style={{ padding: '0.5rem', textAlign: 'left' }}>操作</th>
-                                                                    </tr>
-                                                                </thead>
-                                                                <tbody>
-                                                                    {dateGroup.logs.map((log: any) => (
-                                                                        <tr key={log.id} style={{ borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
-                                                                            <td style={{ padding: '0.5rem' }}>{log.user?.name || '-'}</td>
-                                                                            <td style={{ padding: '0.5rem' }}>{log.process?.name || '-'}</td>
-                                                                            <td style={{ padding: '0.5rem' }}>
-                                                                                {log.part?.name || '-'}
-                                                                                {log.part?.componentCategory ? ` (${log.part.componentCategory})` : ''}
-                                                                            </td>
-                                                                            <td style={{ padding: '0.5rem' }}>{log.startTime}</td>
-                                                                            <td style={{ padding: '0.5rem' }}>{log.endTime || '-'}</td>
-                                                                            <td style={{ padding: '0.5rem' }}>{formatTime(log.duration || 0)}</td>
-                                                                            <td style={{ padding: '0.5rem' }}>
-                                                                                <button
-                                                                                    onClick={async () => {
-                                                                                        if (confirm('この作業記録を削除しますか？')) {
-                                                                                            try {
-                                                                                                await deleteWorkLog(log.id)
-                                                                                            } catch (e: any) {
-                                                                                                alert(e.message)
-                                                                                            }
-                                                                                        }
-                                                                                    }}
-                                                                                    style={{ background: 'transparent', border: 'none', color: '#ff6b6b', cursor: 'pointer', fontSize: '0.8rem', padding: '0.2rem' }}
-                                                                                    className="hover-bg"
-                                                                                    title="記録を削除"
-                                                                                >
-                                                                                    🗑️ 削除
-                                                                                </button>
-                                                                            </td>
-                                                                        </tr>
-                                                                    ))}
-                                                                </tbody>
-                                                            </table>
+                                                <td className="p-4">
+                                                    {item.productionTime ? (
+                                                        <div className="font-bold" style={{ color: (item.productionTime - item.totalDuration) < 0 ? '#ff4d4d' : '#4ade80' }}>
+                                                            {((item.productionTime - item.totalDuration) / 60).toFixed(1)}h
                                                         </div>
-                                                    </td>
-                                                </tr>
-                                            )}
-                                        </React.Fragment>
-                                    )
-                                })}
-                            </React.Fragment>
-                        )
-                    })}
-                    {initialData.length === 0 && (
-                        <tr>
-                            <td colSpan={7} style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                                集計データがありません
-                            </td>
-                        </tr>
-                    )}
-                </tbody>
-            </table>
+                                                    ) : (
+                                                        <span className="text-secondary">-</span>
+                                                    )}
+                                                </td>
+                                                <td className="p-4">
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); handleDelete(item.id, item.lotNumber); }}
+                                                        className="btn-icon"
+                                                        title="削除"
+                                                        style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '8px' }}
+                                                    >
+                                                        🗑️
+                                                    </button>
+                                                </td>
+                                            </>
+                                        )}
+                                    </tr>
+                                    {expandedLot === item.id && (
+                                        <tr style={{ background: 'rgba(0,0,0,0.2)' }}>
+                                            <td colSpan={8} className="p-4">
+                                                <div className="animate-fade">
+                                                    <h4 className="text-sm font-bold mb-3 border-b border-white/10 pb-1">👤 従事者別内訳</h4>
+                                                    <div className="flex flex-wrap gap-4 mb-6">
+                                                        {item.users.map((u: any) => (
+                                                            <div key={u.name} className="glass-light p-3" style={{ borderRadius: '12px', minWidth: '120px', borderTop: u.employmentType === '正社員' ? '2px solid var(--primary)' : '2px solid var(--success)' }}>
+                                                                <div className="text-xs text-secondary">{u.name} <span style={{fontSize: '0.6rem', opacity: 0.6}}>({u.employmentType || '未設定'})</span></div>
+                                                                <div className="font-bold">{(u.duration / 60).toFixed(1)}h</div>
+                                                                <div className="text-xs text-danger">残業: {(u.overtime / 60).toFixed(1)}h</div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+
+                                                    <h4 className="text-sm font-bold mb-3 border-b border-white/10 pb-1">📅 日別ログ明細</h4>
+                                                    <div className="flex flex-col gap-2">
+                                                        {item.dates.map((d: any) => (
+                                                            <div key={d.date} className="text-xs">
+                                                                <div className="font-bold text-primary mb-1">{new Date(d.date).toLocaleDateString()} (計: {(d.dailyDuration / 60).toFixed(1)}h)</div>
+                                                                <div className="flex flex-wrap gap-2">
+                                                                    {d.logs.map((l: any, idx: number) => (
+                                                                        <div key={idx} className="bg-white/5 p-2 rounded">
+                                                                            {l.user.name}: {l.startTime}-{l.endTime || '??'} ({l.duration}分)
+                                                                            {l.remarks && <span className="ml-2 text-secondary">/ {l.remarks}</span>}
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )}
+                                </React.Fragment>
+                            ))
+                        )}
+                    </tbody>
+                </table>
+            </div>
         </div>
     )
 }
+
+
