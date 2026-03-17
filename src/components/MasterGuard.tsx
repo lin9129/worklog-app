@@ -32,7 +32,23 @@ export default function MasterGuard({ children }: Props) {
     }
 
     if (isAuthenticated) {
-        return <>{children}</>
+        return (
+            <>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
+                    <button
+                        onClick={() => {
+                            sessionStorage.removeItem('master_auth');
+                            setIsAuthenticated(false);
+                        }}
+                        className="btn btn-sm"
+                        style={{ background: 'rgba(255,255,255,0.1)', fontSize: '0.8rem' }}
+                    >
+                        🚪 ログアウト
+                    </button>
+                </div>
+                {children}
+            </>
+        )
     }
 
     return (
