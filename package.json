@@ -7,10 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "postinstall": "prisma generate && prisma db push --accept-data-loss"
+    "postinstall": "prisma generate",
+    "vercel-build": "prisma generate && next build"
   },
   "dependencies": {
-    "@libsql/client": "^0.8.0",
+    "@libsql/client": "0.8.0",
     "@prisma/adapter-libsql": "6.4.1",
     "@prisma/adapter-pg": "6.4.1",
     "@prisma/client": "6.4.1",
