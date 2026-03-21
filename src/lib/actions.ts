@@ -8,6 +8,7 @@ import { calculateDuration } from './timeUtils'
 // Master Data
 export async function getMasterData() {
     try {
+        // 防御的コーディング: 念のため空チェック
         const [usersRaw, productsRaw, processesRaw, partsRaw] = await Promise.all([
             prisma.user.findMany({ orderBy: { name: 'asc' } }),
             prisma.product.findMany({ orderBy: { name: 'asc' } }),
@@ -58,20 +59,25 @@ export async function createMasterItem(type: 'user' | 'product' | 'process' | 'p
                 })
                 break
             case 'product':
+                console.log('Creating product:', data.name)
                 await prisma.product.create({
                     data: {
                         name: data.name,
                         category: data.category || null,
-                        // department: data.department || null, // 削除
-                        processes: { connect: data.processIds?.map((id: string) => ({ id })) || [] }
+                        processes: { 
+                            connect: (data.processIds?.filter((id: any) => typeof id === 'string' && id.trim() !== '')?.map((id: string) => ({ id })) || []) 
+                        }
                     }
                 })
                 break
             case 'process': {
+                console.log('Creating process:', data.name)
                 await prisma.process.create({
                     data: {
                         name: data.name,
-                        products: { connect: data.productIds?.map((id: string) => ({ id })) || [] }
+                        products: { 
+                            connect: (data.productIds?.filter((id: any) => typeof id === 'string' && id.trim() !== '')?.map((id: string) => ({ id })) || [])
+                        }
                     }
                 })
                 break
@@ -111,22 +117,27 @@ export async function updateMasterItem(type: 'user' | 'product' | 'process' | 'p
                 })
                 break
             case 'product':
+                console.log('Updating product:', id)
                 await prisma.product.update({
                     where: { id },
                     data: {
                         name: data.name,
                         category: data.category || null,
-                        // department: data.department || null, // 削除
-                        processes: { set: data.processIds?.map((id: string) => ({ id })) || [] }
+                        processes: { 
+                            set: (data.processIds?.filter((id: any) => typeof id === 'string' && id.trim() !== '')?.map((id: string) => ({ id })) || [])
+                        }
                     }
                 })
                 break
             case 'process': {
+                console.log('Updating process:', id)
                 await prisma.process.update({
                     where: { id },
                     data: {
                         name: data.name,
-                        products: { set: data.productIds?.map((id: string) => ({ id })) || [] }
+                        products: { 
+                            set: (data.productIds?.filter((id: any) => typeof id === 'string' && id.trim() !== '')?.map((id: string) => ({ id })) || [])
+                        }
                     }
                 })
                 break
@@ -251,6 +262,8 @@ export async function getActiveProductionSlips(department?: string) {
             orderBy: { createdAt: 'desc' }
         })
 
+        if (!slips || slips.length === 0) return []
+
         const productIds = [...new Set(slips.map((s: any) => s.productId).filter((id: any): id is string => typeof id === 'string' && id.trim().length > 0))]
         const products = productIds.length > 0
             ? await prisma.product.findMany({ where: { id: { in: productIds } } })
@@ -364,7 +377,7 @@ export async function createWorkLog(formData: FormData) {
     }
 
     let processId = (formData.get('processId') as string | null) || null
-    if (processName) {
+    if (processName && typeof processName === 'string' && processName.trim() !== '') {
         const proc = await prisma.process.upsert({
             where: { name: processName },
             update: {},
@@ -401,13 +414,14 @@ export async function createWorkLog(formData: FormData) {
                 where: { lotNumber }
             })
             if (existing) {
+                console.log('Updating existing lotSummary:', lotNumber)
                 await prisma.lotSummary.update({
                     where: { lotNumber },
                     data: {
-                        productId: productId || existing.productId,
-                        manualProductName: manualProductName || existing.manualProductName,
-                        customerName: customerName || existing.customerName,
-                        department: department || existing.department
+                        productId: (productId && typeof productId === 'string' && productId.trim() !== '') ? productId : existing.productId,
+                        manualProductName: (manualProductName && typeof manualProductName === 'string' && manualProductName.trim() !== '') ? manualProductName : existing.manualProductName,
+                        customerName: (customerName && typeof customerName === 'string' && customerName.trim() !== '') ? customerName : existing.customerName,
+                        department: (department && typeof department === 'string' && department.trim() !== '') ? department : existing.department
                     }
                 })
             } else {
@@ -444,7 +458,7 @@ export async function updateWorkLog(id: string, formData: FormData) {
 
         let duration = original.duration
         let overtimeDuration = original.overtimeDuration
-        if (original.startTime && endTime) {
+        if (original.startTime && endTime && typeof endTime === 'string' && endTime.trim() !== '') {
             const result = calculateDuration(original.startTime, endTime, interruptionTime)
             duration = result.totalMinutes
             overtimeDuration = result.overtimeMinutes
@@ -516,10 +530,14 @@ export async function getDashboardData() {
         for (const log of allLogs) {
             const duration = log.duration || 0
 
-            const pName: string = (log.productId ? productNamesById.get(log.productId) : undefined) || log.manualProductName || 'その他'
+            const pName: string = (log.productId && typeof log.productId === 'string' && productNamesById.has(log.productId)) 
+                ? (productNamesById.get(log.productId)!) 
+                : (log.manualProductName || 'その他')
             productMap.set(pName, (productMap.get(pName) || 0) + duration)
 
-            const uName: string = (log.userId ? userNamesById.get(log.userId) : undefined) || '不明'
+            const uName: string = (log.userId && typeof log.userId === 'string' && userNamesById.has(log.userId)) 
+                ? (userNamesById.get(log.userId)!) 
+                : '不明'
             userMap.set(uName, (userMap.get(uName) || 0) + duration)
 
             const lotKey = `${pName} (${log.lotNumber || 'No Lot'})`
