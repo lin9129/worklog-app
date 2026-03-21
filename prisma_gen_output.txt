@@ -1,0 +1,33 @@
+node.exe : Loaded Pri
+sma config from prism
+a.config.ts.
+???? ?:1 ??:1
++ & "C:\Program Files
+\nodejs/node.exe" "C:
+\Program Files\nodejs
+/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~
+    + CategoryInfo   
+           : NotSpe  
+  cified: (Loaded    
+ Prisma c...isma.    
+config.ts.:Strin    g
+) [], RemoteExc    ep
+tion
+    + FullyQualified 
+   ErrorId : Native  
+  CommandError
+ 
+
+Prisma schema loaded 
+from prisma\schema.pr
+isma.
+
+??Generated Prisma Client (v7.4.2) to .\node_modules\@prisma\client in 72ms
+
+Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+
+

@@ -1,0 +1,236 @@
+{
+  "users": [
+    {
+      "id": "cmm647ore000038tro8s92eso",
+      "name": "山田 太郎",
+      "employmentType": "正社員"
+    },
+    {
+      "id": "cmm647ork000138treokcjf4j",
+      "name": "佐藤 花子",
+      "employmentType": "パート"
+    },
+    {
+      "id": "cmm647orp000238trrfxdsdlp",
+      "name": "田中 一郎",
+      "employmentType": "正社員"
+    }
+  ],
+  "products": [
+    {
+      "id": "cmm647oru000338trvsjvyd8a",
+      "name": "タンス"
+    },
+    {
+      "id": "cmm647orz000438trin1wy55b",
+      "name": "机"
+    },
+    {
+      "id": "cmm647os3000538tryk4ik60x",
+      "name": "椅子"
+    },
+    {
+      "id": "cmm64f88e00001gtrm98y56vs",
+      "name": "k-3"
+    },
+    {
+      "id": "cmm68m5ky00011gtrj4uq57fu",
+      "name": "DeskV2"
+    },
+    {
+      "id": "cmm68nafq00021gtr1j1vcr7f",
+      "name": "TestProduct"
+    }
+  ],
+  "processes": [
+    {
+      "id": "cmm647osk000638tr0uid0iay",
+      "name": "木出し"
+    },
+    {
+      "id": "cmm647osq000738trp565osu6",
+      "name": "木取り"
+    },
+    {
+      "id": "cmm647osv000838tr1vdprctl",
+      "name": "ギャングソー"
+    },
+    {
+      "id": "cmm647osz000938tr3cd0bsx7",
+      "name": "リップソー"
+    },
+    {
+      "id": "cmm647ot4000a38trmd904j0n",
+      "name": "クロスカット"
+    },
+    {
+      "id": "cmm647ot8000b38trp7mh8alc",
+      "name": "超仕上げ"
+    },
+    {
+      "id": "cmm647otd000c38trgcu98zlu",
+      "name": "NC加工"
+    },
+    {
+      "id": "cmm647oth000d38tr99s54nq8",
+      "name": "組み立て"
+    },
+    {
+      "id": "cmm68nvl800031gtrxvrstm5c",
+      "name": "Assembly_1"
+    },
+    {
+      "id": "cmm68o3sx00041gtryo4u3jbo",
+      "name": "NC_1"
+    },
+    {
+      "id": "cmm7jl2e1000g1gtr2jpiqpos",
+      "name": "プレナー"
+    },
+    {
+      "id": "cmm7jo4p6000i1gtr57njt8lf",
+      "name": "手押し"
+    },
+    {
+      "id": "cmmbxm14a00036str19vgpk8e",
+      "name": "仕上げ"
+    }
+  ],
+  "parts": [
+    {
+      "id": "cmm647oto000e38trfaxpei6w",
+      "name": "天板",
+      "modelNumber": "D-01",
+      "description": null,
+      "componentCategory": null,
+      "productId": "cmm647orz000438trin1wy55b"
+    },
+    {
+      "id": "cmm647oto000f38traxbji47o",
+      "name": "脚部",
+      "modelNumber": "D-02",
+      "description": null,
+      "componentCategory": null,
+      "productId": "cmm647orz000438trin1wy55b"
+    },
+    {
+      "id": "cmm647oto000g38trsh6e46dd",
+      "name": "引き出し前板",
+      "modelNumber": "T-01",
+      "description": null,
+      "componentCategory": null,
+      "productId": "cmm647oru000338trvsjvyd8a"
+    },
+    {
+      "id": "cmm647oto000h38trslt41o6l",
+      "name": "棚板",
+      "modelNumber": "T-02",
+      "description": null,
+      "componentCategory": null,
+      "productId": "cmm647oru000338trvsjvyd8a"
+    },
+    {
+      "id": "cmm647oto000i38trj23fsumw",
+      "name": "背板",
+      "modelNumber": "T-03",
+      "description": null,
+      "componentCategory": null,
+      "productId": "cmm647oru000338trvsjvyd8a"
+    },
+    {
+      "id": "cmm7j0c2p00061gtrhdcu77wg",
+      "name": "胴土台(前後)",
+      "modelNumber": null,
+      "description": null,
+      "componentCategory": "胴",
+      "productId": "cmm64f88e00001gtrm98y56vs"
+    },
+    {
+      "id": "cmm7j1qsf00071gtradg69522",
+      "name": "胴土台(中)",
+      "modelNumber": null,
+      "description": null,
+      "componentCategory": "胴",
+      "productId": "cmm64f88e00001gtrm98y56vs"
+    },
+    {
+      "id": "cmmbvf4uc00026str8r5ziieh",
+      "name": "桁",
+      "modelNumber": null,
+      "description": null,
+      "componentCategory": "胴",
+      "productId": "cmm64f88e00001gtrm98y56vs"
+    }
+  ],
+  "workLogs": [],
+  "lotSummaries": [
+    {
+      "id": "cmmcknbk9000058tr26wtx2y1",
+      "lotNumber": "1",
+      "productId": "cmm64f88e00001gtrm98y56vs",
+      "productionCount": 50,
+      "productionTime": 1200,
+      "createdAt": "2026-03-04T21:51:36.009Z",
+      "updatedAt": "2026-03-04T21:51:42.439Z"
+    }
+  ],
+  "productsWithProcesses": [
+    {
+      "productId": "cmm647oru000338trvsjvyd8a",
+      "processIds": [
+        "cmm68nvl800031gtrxvrstm5c",
+        "cmm647otd000c38trgcu98zlu",
+        "cmm647ot4000a38trmd904j0n",
+        "cmm647osk000638tr0uid0iay",
+        "cmm647oth000d38tr99s54nq8"
+      ]
+    },
+    {
+      "productId": "cmm647orz000438trin1wy55b",
+      "processIds": [
+        "cmm647otd000c38trgcu98zlu",
+        "cmm647osk000638tr0uid0iay",
+        "cmm647oth000d38tr99s54nq8"
+      ]
+    },
+    {
+      "productId": "cmm647os3000538tryk4ik60x",
+      "processIds": [
+        "cmm647osk000638tr0uid0iay",
+        "cmm647osq000738trp565osu6",
+        "cmm647osv000838tr1vdprctl",
+        "cmm647osz000938tr3cd0bsx7",
+        "cmm647ot4000a38trmd904j0n",
+        "cmm647ot8000b38trp7mh8alc",
+        "cmm647otd000c38trgcu98zlu",
+        "cmm647oth000d38tr99s54nq8"
+      ]
+    },
+    {
+      "productId": "cmm64f88e00001gtrm98y56vs",
+      "processIds": [
+        "cmm647osq000738trp565osu6",
+        "cmm647osv000838tr1vdprctl",
+        "cmm7jl2e1000g1gtr2jpiqpos",
+        "cmm647osk000638tr0uid0iay"
+      ]
+    },
+    {
+      "productId": "cmm68m5ky00011gtrj4uq57fu",
+      "processIds": [
+        "cmm68nvl800031gtrxvrstm5c",
+        "cmm68o3sx00041gtryo4u3jbo"
+      ]
+    },
+    {
+      "productId": "cmm68nafq00021gtr1j1vcr7f",
+      "processIds": [
+        "cmm647otd000c38trgcu98zlu",
+        "cmm647osk000638tr0uid0iay",
+        "cmm647oth000d38tr99s54nq8",
+        "cmm68nvl800031gtrxvrstm5c",
+        "cmm68o3sx00041gtryo4u3jbo"
+      ]
+    }
+  ]
+}

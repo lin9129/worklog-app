@@ -1,0 +1,4 @@
+DATABASE_URL prefix: postgresql://postgres.panjkoqlsafvoceoir
+Testing LotSummary create...
+Created: cmmhmj9b500004ktr1qh57x8f TEST-SLIP-001
+Cleaned up. All OK!

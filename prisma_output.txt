@@ -1,0 +1,31 @@
+node.exe : Loaded Pri
+sma config from prism
+a.config.ts.
+???? ?:1 ??:1
++ & "C:\Program Files
+\nodejs/node.exe" "C:
+\Program Files\nodejs
+/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~
+    + CategoryInfo   
+           : NotSpe  
+  cified: (Loaded    
+ Prisma c...isma.    
+config.ts.:Strin    g
+) [], RemoteExc    ep
+tion
+    + FullyQualified 
+   ErrorId : Native  
+  CommandError
+ 
+
+Prisma schema loaded 
+from prisma\schema.pr
+isma.
+Datasource "db": PostgreSQL database "postgres", schema "public" at "aws-1-ap-northeast-1.pooler.supabase.com:5432"
+
+Your database is now in sync with your Prisma schema. Done in 841ms
+

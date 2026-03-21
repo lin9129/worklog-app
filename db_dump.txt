@@ -1,0 +1,311 @@
+[dotenv@17.3.1] injecting env (2) from .env -- tip: ⚙️  write to custom object with { processEnv: myObject }
+--- ALL COLUMNS ---
+[
+  {
+    "table_name": "LotSummary",
+    "column_name": "completedAt",
+    "data_type": "timestamp without time zone"
+  },
+  {
+    "table_name": "LotSummary",
+    "column_name": "createdAt",
+    "data_type": "timestamp without time zone"
+  },
+  {
+    "table_name": "LotSummary",
+    "column_name": "customerName",
+    "data_type": "text"
+  },
+  {
+    "table_name": "LotSummary",
+    "column_name": "deliveryDate",
+    "data_type": "timestamp without time zone"
+  },
+  {
+    "table_name": "LotSummary",
+    "column_name": "department",
+    "data_type": "text"
+  },
+  {
+    "table_name": "LotSummary",
+    "column_name": "id",
+    "data_type": "text"
+  },
+  {
+    "table_name": "LotSummary",
+    "column_name": "isCompleted",
+    "data_type": "boolean"
+  },
+  {
+    "table_name": "LotSummary",
+    "column_name": "lotNumber",
+    "data_type": "text"
+  },
+  {
+    "table_name": "LotSummary",
+    "column_name": "manualProductName",
+    "data_type": "text"
+  },
+  {
+    "table_name": "LotSummary",
+    "column_name": "productId",
+    "data_type": "text"
+  },
+  {
+    "table_name": "LotSummary",
+    "column_name": "productionCount",
+    "data_type": "integer"
+  },
+  {
+    "table_name": "LotSummary",
+    "column_name": "productionTime",
+    "data_type": "integer"
+  },
+  {
+    "table_name": "LotSummary",
+    "column_name": "remarks",
+    "data_type": "text"
+  },
+  {
+    "table_name": "LotSummary",
+    "column_name": "updatedAt",
+    "data_type": "timestamp without time zone"
+  },
+  {
+    "table_name": "Part",
+    "column_name": "componentCategory",
+    "data_type": "text"
+  },
+  {
+    "table_name": "Part",
+    "column_name": "createdAt",
+    "data_type": "timestamp without time zone"
+  },
+  {
+    "table_name": "Part",
+    "column_name": "description",
+    "data_type": "text"
+  },
+  {
+    "table_name": "Part",
+    "column_name": "id",
+    "data_type": "text"
+  },
+  {
+    "table_name": "Part",
+    "column_name": "modelNumber",
+    "data_type": "text"
+  },
+  {
+    "table_name": "Part",
+    "column_name": "name",
+    "data_type": "text"
+  },
+  {
+    "table_name": "Part",
+    "column_name": "productId",
+    "data_type": "text"
+  },
+  {
+    "table_name": "Part",
+    "column_name": "updatedAt",
+    "data_type": "timestamp without time zone"
+  },
+  {
+    "table_name": "Process",
+    "column_name": "createdAt",
+    "data_type": "timestamp without time zone"
+  },
+  {
+    "table_name": "Process",
+    "column_name": "id",
+    "data_type": "text"
+  },
+  {
+    "table_name": "Process",
+    "column_name": "name",
+    "data_type": "text"
+  },
+  {
+    "table_name": "Process",
+    "column_name": "updatedAt",
+    "data_type": "timestamp without time zone"
+  },
+  {
+    "table_name": "Product",
+    "column_name": "category",
+    "data_type": "text"
+  },
+  {
+    "table_name": "Product",
+    "column_name": "createdAt",
+    "data_type": "timestamp without time zone"
+  },
+  {
+    "table_name": "Product",
+    "column_name": "id",
+    "data_type": "text"
+  },
+  {
+    "table_name": "Product",
+    "column_name": "name",
+    "data_type": "text"
+  },
+  {
+    "table_name": "Product",
+    "column_name": "updatedAt",
+    "data_type": "timestamp without time zone"
+  },
+  {
+    "table_name": "User",
+    "column_name": "createdAt",
+    "data_type": "timestamp without time zone"
+  },
+  {
+    "table_name": "User",
+    "column_name": "department",
+    "data_type": "text"
+  },
+  {
+    "table_name": "User",
+    "column_name": "employmentType",
+    "data_type": "text"
+  },
+  {
+    "table_name": "User",
+    "column_name": "id",
+    "data_type": "text"
+  },
+  {
+    "table_name": "User",
+    "column_name": "name",
+    "data_type": "text"
+  },
+  {
+    "table_name": "User",
+    "column_name": "updatedAt",
+    "data_type": "timestamp without time zone"
+  },
+  {
+    "table_name": "WorkLog",
+    "column_name": "createdAt",
+    "data_type": "timestamp without time zone"
+  },
+  {
+    "table_name": "WorkLog",
+    "column_name": "customerName",
+    "data_type": "text"
+  },
+  {
+    "table_name": "WorkLog",
+    "column_name": "date",
+    "data_type": "timestamp without time zone"
+  },
+  {
+    "table_name": "WorkLog",
+    "column_name": "department",
+    "data_type": "text"
+  },
+  {
+    "table_name": "WorkLog",
+    "column_name": "duration",
+    "data_type": "integer"
+  },
+  {
+    "table_name": "WorkLog",
+    "column_name": "endTime",
+    "data_type": "text"
+  },
+  {
+    "table_name": "WorkLog",
+    "column_name": "id",
+    "data_type": "text"
+  },
+  {
+    "table_name": "WorkLog",
+    "column_name": "interruptionTime",
+    "data_type": "integer"
+  },
+  {
+    "table_name": "WorkLog",
+    "column_name": "lotNumber",
+    "data_type": "text"
+  },
+  {
+    "table_name": "WorkLog",
+    "column_name": "manualProductName",
+    "data_type": "text"
+  },
+  {
+    "table_name": "WorkLog",
+    "column_name": "overtimeDuration",
+    "data_type": "integer"
+  },
+  {
+    "table_name": "WorkLog",
+    "column_name": "partId",
+    "data_type": "text"
+  },
+  {
+    "table_name": "WorkLog",
+    "column_name": "processId",
+    "data_type": "text"
+  },
+  {
+    "table_name": "WorkLog",
+    "column_name": "productId",
+    "data_type": "text"
+  },
+  {
+    "table_name": "WorkLog",
+    "column_name": "remarks",
+    "data_type": "text"
+  },
+  {
+    "table_name": "WorkLog",
+    "column_name": "startTime",
+    "data_type": "text"
+  },
+  {
+    "table_name": "WorkLog",
+    "column_name": "status",
+    "data_type": "text"
+  },
+  {
+    "table_name": "WorkLog",
+    "column_name": "updatedAt",
+    "data_type": "timestamp without time zone"
+  },
+  {
+    "table_name": "WorkLog",
+    "column_name": "userId",
+    "data_type": "text"
+  },
+  {
+    "table_name": "_ProcessToProduct",
+    "column_name": "A",
+    "data_type": "text"
+  },
+  {
+    "table_name": "_ProcessToProduct",
+    "column_name": "B",
+    "data_type": "text"
+  }
+]
+--- PRODUCT DATA ---
+[
+  {
+    "id": "cmmq3ea9s0000g4trpyddz8zk",
+    "name": "k-3",
+    "category": "神棚",
+    "createdAt": "2026-03-13T23:57:27.299Z",
+    "updatedAt": "2026-03-14T01:27:04.509Z"
+  },
+  {
+    "id": "cmmq3ls3r0002g4traf7ga8dx",
+    "name": "k-7",
+    "category": "神棚",
+    "createdAt": "2026-03-14T00:03:17.023Z",
+    "updatedAt": "2026-03-14T04:41:15.926Z"
+  }
+]

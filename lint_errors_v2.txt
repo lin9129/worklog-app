@@ -1,0 +1,6 @@
+
+C:\Users\0912w\.gemini\antigravity\scratch\worklog-app\src\lib\actions.ts
+  579:15  warning  'productMap' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+笨・1 problem (0 errors, 1 warning)
+

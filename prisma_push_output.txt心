@@ -1,0 +1,75 @@
+node.exe : Loaded Pri
+sma config from prism
+a.config.ts.
+???? ?:1 ??:1
++ & "C:\Program Files
+\nodejs/node.exe" "C:
+\Program Files\nodejs
+/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~
+    + CategoryInfo   
+           : NotSpe  
+  cified: (Loaded    
+ Prisma c...isma.    
+config.ts.:Strin    g
+) [], RemoteExc    ep
+tion
+    + FullyQualified 
+   ErrorId : Native  
+  CommandError
+ 
+
+Prisma schema loaded 
+from prisma\schema.pr
+isma.
+Datasource "db": PostgreSQL database "postgres", schema "public" at "aws-1-ap-northeast-1.pooler.supabase.com:5432"
+
+Error: 
+????We found changes 
+that cannot be execut
+ed:
+
+  ?? Added the requir
+ed column `updatedAt`
+ to the `Part` table 
+without a default val
+ue. There are 8 rows 
+in this table, it is 
+not possible to execu
+te this step.
+  ?? Added the requir
+ed column `updatedAt`
+ to the `Process` tab
+le without a default 
+value. There are 13 r
+ows in this table, it
+ is not possible to e
+xecute this step.
+  ?? Added the requir
+ed column `updatedAt`
+ to the `Product` tab
+le without a default 
+value. There are 6 ro
+ws in this table, it 
+is not possible to ex
+ecute this step.
+  ?? Added the requir
+ed column `updatedAt`
+ to the `User` table 
+without a default val
+ue. There are 5 rows 
+in this table, it is 
+not possible to execu
+te this step.
+
+You may use the --for
+ce-reset flag to drop
+ the database before 
+push like prisma db p
+ush --force-reset
+All data will be lost
+.
+      
