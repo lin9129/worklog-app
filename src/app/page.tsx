@@ -8,9 +8,26 @@ import Dashboard from '@/components/Dashboard'
 export const dynamic = 'force-dynamic'
 
 export default async function Home() {
-  const masterData = await getMasterData()
-  const logs = await getWorkLogs()
-  const dashboardData = await getDashboardData()
+  let masterData = { users: [] as any[], products: [] as any[], processes: [] as any[], parts: [] as any[] }
+  let logs: any[] = []
+  let dashboardData = { 
+    products: [] as { name: string; total: number }[], 
+    users: [] as { name: string; total: number }[], 
+    lots: [] as { name: string; total: number }[] 
+  }
+
+  try {
+    const [m, l, d] = await Promise.all([
+      getMasterData(),
+      getWorkLogs(),
+      getDashboardData()
+    ])
+    if (m) masterData = m
+    if (l) logs = l
+    if (d) dashboardData = d
+  } catch (error) {
+    console.error('Home page data fetching failed:', error)
+  }
 
   return (
     <div style={{ paddingBottom: '5rem' }}>
