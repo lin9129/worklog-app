@@ -23,7 +23,7 @@ function timeToMinutes(time: string): number {
 export function calculateDuration(startTime: string, endTime: string | null, interruptionMinutes: number = 0): DurationResult {
     if (!endTime) return { totalMinutes: 0, overtimeMinutes: 0 };
 
-    let start = timeToMinutes(startTime);
+    const start = timeToMinutes(startTime);
     let end = timeToMinutes(endTime);
 
     // Handle overnight work if necessary (though unlikely for this app)

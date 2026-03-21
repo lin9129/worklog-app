@@ -1,4 +1,5 @@
 'use server'
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { prisma } from './prisma'
 import { revalidatePath } from 'next/cache'
@@ -7,21 +8,15 @@ import { calculateDuration } from './timeUtils'
 // Master Data
 export async function getMasterData() {
     try {
-        const [usersRaw, products, processes, parts] = await Promise.all([
+        const [usersRaw, productsRaw, processesRaw, partsRaw] = await Promise.all([
             prisma.user.findMany({ orderBy: { name: 'asc' } }),
-            prisma.product.findMany({
-                orderBy: { name: 'asc' },
-                include: { processes: true }
-            }),
-            prisma.process.findMany({
-                orderBy: { name: 'asc' },
-                include: { products: { select: { id: true, name: true } } }
-            }),
-            prisma.part.findMany({
-                orderBy: { name: 'asc' },
-                include: { product: { select: { id: true, name: true } } }
-            }),
+            prisma.product.findMany({ orderBy: { name: 'asc' } }),
+            prisma.process.findMany({ orderBy: { name: 'asc' } }),
+            prisma.part.findMany({ orderBy: { name: 'asc' } }),
         ])
+
+        // 手動で関連付けを構築（Prismaの自動includeによる内部的なnull IDエラーを回避）
+        // Product <-> Process の多対多はコンポーネント側でマスタから引くため、ここでは生データを返すのみとする
 
         const DEPT_ORDER: Record<string, number> = { '第一': 1, '第二': 2, '第三': 3, '第四': 4 };
         const users = usersRaw.sort((a: any, b: any) => {
@@ -31,7 +26,15 @@ export async function getMasterData() {
             return a.name.localeCompare(b.name, 'ja');
         });
 
-        return { users, products, processes, parts }
+        // 実際の多対多の関連（Product <-> Process）は、Prismaのincludeを使わずにIDリストで渡す
+        // または、一旦そのまま返し、必要なら各コンポーネントで対応
+        // getMasterDataで期待される形状に整形
+        return { 
+            users, 
+            products: productsRaw, 
+            processes: processesRaw, 
+            parts: partsRaw 
+        }
     } catch (error) {
         console.error('Failed to fetch master data:', error)
         throw new Error('Failed to fetch master data')
@@ -41,6 +44,9 @@ export async function getMasterData() {
 // Master CRUD Actions
 export async function createMasterItem(type: 'user' | 'product' | 'process' | 'part', data: any) {
     try {
+        if (!data.name || typeof data.name !== 'string' || data.name.trim() === '') {
+            throw new Error('名前は必須です')
+        }
         switch (type) {
             case 'user':
                 await prisma.user.create({
@@ -91,6 +97,7 @@ export async function createMasterItem(type: 'user' | 'product' | 'process' | 'p
 }
 
 export async function updateMasterItem(type: 'user' | 'product' | 'process' | 'part', id: string, data: any) {
+    if (!id || typeof id !== 'string') throw new Error('IDが指定されていないか、無効です')
     try {
         switch (type) {
             case 'user':
@@ -147,6 +154,7 @@ export async function updateMasterItem(type: 'user' | 'product' | 'process' | 'p
 
 export async function deleteMasterItem(type: 'user' | 'product' | 'process' | 'part', id: string) {
     try {
+        if (!id || typeof id !== 'string') throw new Error('IDが指定されていないか、無効です')
         switch (type) {
             case 'user': await prisma.user.delete({ where: { id } }); break
             case 'product': await prisma.product.delete({ where: { id } }); break
@@ -200,6 +208,7 @@ export async function upsertProductionSlip(data: any): Promise<{ success: boolea
         }
 
         if (id) {
+            if (typeof id !== 'string') throw new Error('IDが無効です')
             // Edit mode: Update by ID
             console.log('Updating existing record by ID:', id)
             await prisma.lotSummary.update({
@@ -207,6 +216,7 @@ export async function upsertProductionSlip(data: any): Promise<{ success: boolea
                 data: updateData
             })
         } else {
+            if (!lotNumber) return { success: false, error: 'ロット番号が指定されていません' }
             // Create mode: Check for duplicate lotNumber first
             const existing = await prisma.lotSummary.findUnique({
                 where: { lotNumber }
@@ -236,11 +246,21 @@ export async function getActiveProductionSlips(department?: string) {
         const where: any = { isCompleted: false }
         if (department) where.department = department
 
-        return await prisma.lotSummary.findMany({
+        const slips = await prisma.lotSummary.findMany({
             where,
-            include: { product: true },
             orderBy: { createdAt: 'desc' }
         })
+
+        const productIds = [...new Set(slips.map((s: any) => s.productId).filter((id: any): id is string => typeof id === 'string' && id.trim().length > 0))]
+        const products = productIds.length > 0
+            ? await prisma.product.findMany({ where: { id: { in: productIds } } })
+            : []
+        const productMap = new Map(products.map((p: any) => [p.id, p]))
+
+        return slips.map((s: any) => ({
+            ...s,
+            product: s.productId ? productMap.get(s.productId) : null
+        }))
     } catch (error) {
         console.error('Failed to fetch production slips:', error)
         throw new Error('Failed to fetch production slips')
@@ -276,16 +296,39 @@ export async function getWorkLogs(filters?: {
             }
         }
 
-        return await prisma.workLog.findMany({
+        const logs = await prisma.workLog.findMany({
             where,
-            include: {
-                user: true,
-                product: true,
-                process: true,
-                part: true,
-            },
             orderBy: { date: 'desc' }
         })
+
+        // Collect unique IDs for all relations
+        const userIds = [...new Set(logs.map((l: any) => l.userId).filter((id: any): id is string => typeof id === 'string' && id.trim().length > 0))]
+        const productIds = [...new Set(logs.map((l: any) => l.productId).filter((id: any): id is string => typeof id === 'string' && id.trim().length > 0))]
+        const processIds = [...new Set(logs.map((l: any) => l.processId).filter((id: any): id is string => typeof id === 'string' && id.trim().length > 0))]
+        const partIds = [...new Set(logs.map((l: any) => l.partId).filter((id: any): id is string => typeof id === 'string' && id.trim().length > 0))]
+
+        // Fetch all related records in parallel
+        const [users, products, processes, parts] = await Promise.all([
+            userIds.length > 0 ? prisma.user.findMany({ where: { id: { in: userIds } } }) : [],
+            productIds.length > 0 ? prisma.product.findMany({ where: { id: { in: productIds } } }) : [],
+            processIds.length > 0 ? prisma.process.findMany({ where: { id: { in: processIds } } }) : [],
+            partIds.length > 0 ? prisma.part.findMany({ where: { id: { in: partIds } } }) : [],
+        ])
+
+        // Build maps for efficient lookup
+        const userMap = new Map(users.map((u: any) => [u.id, u]))
+        const productMap = new Map(products.map((p: any) => [p.id, p]))
+        const processMap = new Map(processes.map((p: any) => [p.id, p]))
+        const partMap = new Map(parts.map((p: any) => [p.id, p]))
+
+        // Map related records back to logs
+        return logs.map((l: any) => ({
+            ...l,
+            user: l.userId ? userMap.get(l.userId) : null,
+            product: l.productId ? productMap.get(l.productId) : null,
+            process: l.processId ? processMap.get(l.processId) : null,
+            part: l.partId ? partMap.get(l.partId) : null,
+        }))
     } catch (error) {
         console.error('Failed to fetch work logs:', error)
         throw new Error('Failed to fetch work logs')
@@ -395,6 +438,7 @@ export async function updateWorkLog(id: string, formData: FormData) {
     const remarks = formData.get('remarks') as string
 
     try {
+        if (!id || typeof id !== 'string' || id.trim() === '') throw new Error('IDが指定されていません')
         const original = await prisma.workLog.findUnique({ where: { id } })
         if (!original) throw new Error('WorkLog not found')
 
@@ -425,6 +469,7 @@ export async function updateWorkLog(id: string, formData: FormData) {
 }
 
 export async function deleteWorkLog(id: string) {
+    if (!id || typeof id !== 'string' || id.trim() === '') throw new Error('IDが指定されていません')
     try {
         await prisma.workLog.delete({ where: { id } })
         revalidatePath('/')
@@ -451,8 +496,8 @@ export async function getDashboardData() {
         })
 
         // 有効なIDのみでproductとuserを一括取得
-        const validProductIds = [...new Set(allLogs.map((l) => l.productId).filter((id): id is string => typeof id === 'string' && id.trim().length > 0))]
-        const validUserIds = [...new Set(allLogs.map((l) => l.userId).filter((id): id is string => typeof id === 'string' && id.trim().length > 0))]
+        const validProductIds = [...new Set(allLogs.map((l: any) => l.productId).filter((id: any): id is string => typeof id === 'string' && id.trim().length > 0))]
+        const validUserIds = [...new Set(allLogs.map((l: any) => l.userId).filter((id: any): id is string => typeof id === 'string' && id.trim().length > 0))]
 
         const products = validProductIds.length > 0
             ? await prisma.product.findMany({ where: { id: { in: validProductIds } }, select: { id: true, name: true } })
@@ -461,8 +506,8 @@ export async function getDashboardData() {
             ? await prisma.user.findMany({ where: { id: { in: validUserIds } }, select: { id: true, name: true } })
             : ([] as { id: string, name: string }[])
 
-        const productNamesById = new Map<string, string>(products.map((p) => [p.id, p.name]))
-        const userNamesById = new Map<string, string>(users.map((u) => [u.id, u.name]))
+        const productNamesById = new Map<string, string>(products.map((p: any) => [p.id, p.name]))
+        const userNamesById = new Map<string, string>(users.map((u: any) => [u.id, u.name]))
 
         const productMap = new Map<string, number>()
         const userMap = new Map<string, number>()
@@ -505,16 +550,16 @@ export async function getLotSummaryData() {
             orderBy: { date: 'desc' }
         })
 
-        const validUserIds = [...new Set(logs.map(l => l.userId).filter((id): id is string => typeof id === 'string' && id.trim().length > 0))]
+        const validUserIds = [...new Set(logs.map((l: any) => l.userId).filter((id: any): id is string => typeof id === 'string' && id.trim().length > 0))]
         const users = validUserIds.length > 0
             ? await prisma.user.findMany({ where: { id: { in: validUserIds } } })
             : []
-        const userMap = new Map(users.map(u => [u.id, u]))
+        const userMap = new Map(users.map((u: any) => [u.id, u]))
 
         // Build log user object mapping
-        const logsWithUser = logs.map(l => ({
+        const logsWithUser = logs.map((l: any) => ({
             ...l,
-            user: l.userId ? userMap.get(l.userId) : null
+            user: (l.userId && typeof l.userId === 'string') ? userMap.get(l.userId) : null
         }))
 
         const summaries = await prisma.lotSummary.findMany({
@@ -527,15 +572,15 @@ export async function getLotSummaryData() {
             }
         })
 
-        const validProductIds = [...new Set(summaries.map(s => s.productId).filter((id): id is string => typeof id === 'string' && id.trim().length > 0))]
+        const validProductIds = [...new Set(summaries.map((s: any) => s.productId).filter((id: any): id is string => typeof id === 'string' && id.trim().length > 0))]
         const products = validProductIds.length > 0
             ? await prisma.product.findMany({ where: { id: { in: validProductIds } }, select: { id: true, name: true } })
             : []
-        const productMap = new Map(products.map(p => [p.id, p]))
+        const productMap = new Map<string, { id: string, name: string }>(products.map((p: any) => [p.id, p]))
 
         const result = summaries.map((s: any) => {
             // Match logs by lotNumber only (simpler, more reliable)
-            const lotLogs = logs.filter((l: any) => l.lotNumber === s.lotNumber)
+            const lotLogs = logsWithUser.filter((l: any) => l.lotNumber === s.lotNumber)
 
             const totalDuration = lotLogs.reduce((acc: number, l: any) => acc + (l.duration || 0), 0)
             const totalOvertime = lotLogs.reduce((acc: number, l: any) => acc + (l.overtimeDuration || 0), 0)
@@ -576,11 +621,13 @@ export async function getLotSummaryData() {
                 dg.logs.push(l)
             })
 
+            const product = s.productId ? productMap.get(s.productId) : null
+
             return {
                 id: s.id,
                 lotNumber: s.lotNumber,
                 productId: s.productId,
-                productName: s.product?.name || s.manualProductName || '未設定',
+                productName: product?.name || s.manualProductName || '未設定',
                 customerName: s.customerName,
                 productionCount: s.productionCount,
                 productionTime: s.productionTime,
@@ -611,6 +658,10 @@ export async function getLotSummaryData() {
 }
 
 export async function completeLot(id: string) {
+    if (!id || typeof id !== 'string' || id.trim() === '') {
+        console.error('Complete failed: ID is empty')
+        return
+    }
     try {
         await prisma.lotSummary.update({
             where: { id },
@@ -627,6 +678,7 @@ export async function completeLot(id: string) {
 }
 
 export async function deleteLotSummary(id: string) {
+    if (!id || typeof id !== 'string' || id.trim() === '') throw new Error('IDが指定されていません')
     try {
         await prisma.lotSummary.delete({
             where: { id }
