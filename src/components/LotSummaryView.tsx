@@ -171,7 +171,7 @@ export default function LotSummaryView({ data, mode = 'ongoing' }: Props) {
                                                                 <div className="flex flex-wrap gap-2">
                                                                     {d.logs.map((l: any, idx: number) => (
                                                                         <div key={idx} className="bg-white/5 p-2 rounded">
-                                                                            {l.user.name}: {l.startTime}-{l.endTime || '??'} ({l.duration}分)
+                                                                             {l.user?.name || '不明'}: {l.startTime}-{l.endTime || '??'} ({l.duration}分)
                                                                             {l.remarks && <span className="ml-2 text-secondary">/ {l.remarks}</span>}
                                                                         </div>
                                                                     ))}

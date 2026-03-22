@@ -537,7 +537,8 @@ export async function getLotSummaryData() {
                 manualProductName: true, customerName: true,
                 productionCount: true, productionTime: true,
                 deliveryDate: true, remarks: true, department: true,
-                isCompleted: true, completedAt: true, createdAt: true
+                isCompleted: true, completedAt: true, createdAt: true,
+                product: { select: { name: true } }
             }
         })
 
@@ -549,7 +550,7 @@ export async function getLotSummaryData() {
 
         const result = summaries.map((s: any) => {
             // Match logs by lotNumber only (simpler, more reliable)
-            const lotLogs = logs.filter((l: any) => l.lotNumber === s.lotNumber)
+            const lotLogs = logsWithUser.filter((l: any) => l.lotNumber === s.lotNumber)
 
             const totalDuration = lotLogs.reduce((acc: number, l: any) => acc + (l.duration || 0), 0)
             const totalOvertime = lotLogs.reduce((acc: number, l: any) => acc + (l.overtimeDuration || 0), 0)

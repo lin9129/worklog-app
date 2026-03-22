@@ -10,10 +10,10 @@ export const dynamic = 'force-dynamic'
 export default async function Home() {
   let masterData = { users: [] as any[], products: [] as any[], processes: [] as any[], parts: [] as any[] }
   let logs: any[] = []
-  let dashboardData = { 
-    products: [] as { name: string; total: number }[], 
-    users: [] as { name: string; total: number }[], 
-    lots: [] as { name: string; total: number }[] 
+  let dashboardData = {
+    products: [] as { name: string; total: number }[],
+    users: [] as { name: string; total: number }[],
+    lots: [] as { name: string; total: number }[]
   }
 
   try {
