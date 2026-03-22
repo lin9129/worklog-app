@@ -1,0 +1,27 @@
+--- Checking for Null/Empty String Mismatch ---
+LotSummaries:
+ID: cmmjn19kx0000b0trm9zt0qxm, Lot: "1", pId: NULL, manual: "test"
+ID: cmn1q8eqq0001jo04vrmzwnvp, Lot: "2", pId: NULL, manual: "test"
+
+WorkLogs (matching summary lot numbers):
+ID: cmmq6vxnv0006g4tr7vawjx52, Lot: "1", pId: "cmmq3ea9s0000g4trpyddz8zk", manual: NULL
+ID: cmmq783a80009g4trekxweq3f, Lot: "2", pId: "cmmq3ls3r0002g4traf7ga8dx", manual: NULL
+ID: cmmq7akqk000ag4trhoiuwfux, Lot: "2", pId: "cmmq3ls3r0002g4traf7ga8dx", manual: NULL
+ID: cmmq7bqfk000bg4trctewhwut, Lot: "2", pId: "cmmq3ls3r0002g4traf7ga8dx", manual: NULL
+ID: cmn1ocwse0001jr04zqs5y0im, Lot: "1", pId: NULL, manual: "test"
+ID: cmn1odvgj0003l704riyut0vc, Lot: "1", pId: NULL, manual: "test"
+ID: cmn1q9saj0001jr04jabltheu, Lot: "2", pId: NULL, manual: "test"
+ID: cmn1qbxrr0003jr04m1kiv1xx, Lot: "2", pId: NULL, manual: "test"
+
+WorkLogs without any matching LotSummary (by lot+product+manual):
+Found 12 orphaned logs.
+ID: cmmq6vxnv0006g4tr7vawjx52, Lot: "1", pId: "cmmq3ea9s0000g4trpyddz8zk", manual: NULL
+ID: cmmq783a80009g4trekxweq3f, Lot: "2", pId: "cmmq3ls3r0002g4traf7ga8dx", manual: NULL
+ID: cmmq7akqk000ag4trhoiuwfux, Lot: "2", pId: "cmmq3ls3r0002g4traf7ga8dx", manual: NULL
+ID: cmmq7bqfk000bg4trctewhwut, Lot: "2", pId: "cmmq3ls3r0002g4traf7ga8dx", manual: NULL
+ID: cmmq8a53m000gg4tr6rsi3vx3, Lot: "3", pId: "cmmq3ea9s0000g4trpyddz8zk", manual: NULL
+ID: cmmq8b22z000hg4tr4zr084y1, Lot: "3", pId: "cmmq3ea9s0000g4trpyddz8zk", manual: NULL
+ID: cmmq8c8y9000jg4trfjpd98d7, Lot: "3", pId: "cmmq3ea9s0000g4trpyddz8zk", manual: NULL
+ID: cmmq8f5os000mg4tr88xpr8si, Lot: "4", pId: NULL, manual: "test"
+ID: cmmqu2tiz000ng4trst0u0tkm, Lot: "3", pId: "cmmq3ea9s0000g4trpyddz8zk", manual: NULL
+ID: cmmqudnbb000og4tr0wrqgtxd, Lot: "3", pId: "cmmq3ea9s0000g4trpyddz8zk", manual: NULL

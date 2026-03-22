@@ -222,9 +222,9 @@ export async function upsertProductionSlip(data: any): Promise<{ success: boolea
             // Create mode: Check for duplicate (lotNumber + product)
             const existing = await prisma.lotSummary.findFirst({
                 where: { 
-                    lotNumber,
+                    lotNumber: lotNumber.trim(),
                     productId,
-                    manualProductName: manualName
+                    manualProductName: manualName || null
                 }
             })
             if (existing) {
@@ -233,7 +233,11 @@ export async function upsertProductionSlip(data: any): Promise<{ success: boolea
 
             console.log('Creating new record')
             await prisma.lotSummary.create({
-                data: updateData
+                data: {
+                    ...updateData,
+                    lotNumber: lotNumber.trim(),
+                    manualProductName: manualName || null
+                }
             })
         }
 
@@ -347,6 +351,8 @@ export async function createWorkLog(formData: FormData) {
     }
 
     try {
+        const trimmedLot = lotNumber ? lotNumber.trim() : null
+
         await prisma.workLog.create({
             data: {
                 userId,
@@ -355,7 +361,7 @@ export async function createWorkLog(formData: FormData) {
                 customerName,
                 partId,
                 processId,
-                lotNumber,
+                lotNumber: trimmedLot,
                 date: new Date(dateStr),
                 startTime,
                 endTime,
@@ -369,12 +375,12 @@ export async function createWorkLog(formData: FormData) {
         })
 
         // Also sync LotSummary if lotNumber is provided
-        if (lotNumber) {
+        if (trimmedLot) {
             const existing = await prisma.lotSummary.findFirst({
                 where: { 
-                    lotNumber,
+                    lotNumber: trimmedLot,
                     productId,
-                    manualProductName
+                    manualProductName: manualProductName || null
                 }
             })
             if (existing) {
@@ -388,9 +394,9 @@ export async function createWorkLog(formData: FormData) {
             } else {
                 await prisma.lotSummary.create({
                     data: {
-                        lotNumber,
+                        lotNumber: trimmedLot,
                         productId,
-                        manualProductName,
+                        manualProductName: manualProductName || null,
                         customerName,
                         department
                     }
@@ -555,12 +561,17 @@ export async function getLotSummaryData() {
         const productMap = new Map(products.map((p: any) => [p.id, p]))
 
         const result = summaries.map((s: any) => {
-            // Match logs by lotNumber AND product identity
-            const lotLogs = logsWithUser.filter((l: any) => 
-                l.lotNumber === s.lotNumber && 
-                l.productId === s.productId && 
-                l.manualProductName === s.manualProductName
-            )
+            // Match logs by lotNumber AND product identity (robust comparison)
+            const lotLogs = logsWithUser.filter((l: any) => {
+                const lLot = (l.lotNumber || '').trim()
+                const sLot = (s.lotNumber || '').trim()
+                const lPid = l.productId || null
+                const sPid = s.productId || null
+                const lManual = l.manualProductName || null
+                const sManual = s.manualProductName || null
+                
+                return lLot === sLot && lPid === sPid && lManual === sManual
+            })
 
             const totalDuration = lotLogs.reduce((acc: number, l: any) => acc + (l.duration || 0), 0)
             const totalOvertime = lotLogs.reduce((acc: number, l: any) => acc + (l.overtimeDuration || 0), 0)

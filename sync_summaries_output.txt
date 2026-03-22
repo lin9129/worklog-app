@@ -1,0 +1,8 @@
+--- Starting LotSummary Sync ---
+Found 7 unique combinations in WorkLog.
+Creating missing LotSummary: Lot="3", pId=cmmq3ea9s0000g4trpyddz8zk, manual=null
+Creating missing LotSummary: Lot="2", pId=cmmq3ls3r0002g4traf7ga8dx, manual=null
+Creating missing LotSummary: Lot="1", pId=cmmq3ea9s0000g4trpyddz8zk, manual=null
+Creating missing LotSummary: Lot="5", pId=null, manual=test
+Creating missing LotSummary: Lot="4", pId=null, manual=test
+Finished. Created: 5, Already exists: 2
