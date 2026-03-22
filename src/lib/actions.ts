@@ -219,12 +219,16 @@ export async function upsertProductionSlip(data: any): Promise<{ success: boolea
             })
         } else {
             if (!lotNumber) return { success: false, error: 'ロット番号が指定されていません' }
-            // Create mode: Check for duplicate lotNumber first
-            const existing = await prisma.lotSummary.findUnique({
-                where: { lotNumber }
+            // Create mode: Check for duplicate (lotNumber + product)
+            const existing = await prisma.lotSummary.findFirst({
+                where: { 
+                    lotNumber,
+                    productId,
+                    manualProductName: manualName
+                }
             })
             if (existing) {
-                return { success: false, error: `ロット番号「${lotNumber}」は既に登録されています。既存の伝票を修正するか、別の番号を入力してください。` }
+                return { success: false, error: `ロット番号「${lotNumber}」と商品名の組み合わせは、既に登録されています。既存の伝票を修正するか、別の番号・名称を入力してください。` }
             }
 
             console.log('Creating new record')
@@ -366,15 +370,17 @@ export async function createWorkLog(formData: FormData) {
 
         // Also sync LotSummary if lotNumber is provided
         if (lotNumber) {
-            const existing = await prisma.lotSummary.findUnique({
-                where: { lotNumber }
+            const existing = await prisma.lotSummary.findFirst({
+                where: { 
+                    lotNumber,
+                    productId,
+                    manualProductName
+                }
             })
             if (existing) {
                 await prisma.lotSummary.update({
-                    where: { lotNumber },
+                    where: { id: existing.id },
                     data: {
-                        productId: productId || existing.productId,
-                        manualProductName: manualProductName || existing.manualProductName,
                         customerName: customerName || existing.customerName,
                         department: department || existing.department
                     }
@@ -549,8 +555,12 @@ export async function getLotSummaryData() {
         const productMap = new Map(products.map((p: any) => [p.id, p]))
 
         const result = summaries.map((s: any) => {
-            // Match logs by lotNumber only (simpler, more reliable)
-            const lotLogs = logsWithUser.filter((l: any) => l.lotNumber === s.lotNumber)
+            // Match logs by lotNumber AND product identity
+            const lotLogs = logsWithUser.filter((l: any) => 
+                l.lotNumber === s.lotNumber && 
+                l.productId === s.productId && 
+                l.manualProductName === s.manualProductName
+            )
 
             const totalDuration = lotLogs.reduce((acc: number, l: any) => acc + (l.duration || 0), 0)
             const totalOvertime = lotLogs.reduce((acc: number, l: any) => acc + (l.overtimeDuration || 0), 0)

@@ -81,7 +81,7 @@ model WorkLog {
 
 model LotSummary {
   id                String    @id @default(cuid())
-  lotNumber         String    @unique
+  lotNumber         String    
   productId         String?
   manualProductName String?
   customerName      String?
