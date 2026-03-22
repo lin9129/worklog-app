@@ -24,9 +24,9 @@ async function main() {
         parts,
         workLogs,
         lotSummaries,
-        productsWithProcesses: productsWithProcesses.map(p => ({
+        productsWithProcesses: productsWithProcesses.map((p: any) => ({
             productId: p.id,
-            processIds: p.processes.map(proc => proc.id)
+            processIds: p.processes.map((proc: any) => proc.id)
         }))
     }
 

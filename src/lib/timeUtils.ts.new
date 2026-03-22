@@ -2,18 +2,6 @@
  * Time calculation utilities for break time exclusion and overtime tracking.
  */
 
-export function formatJST(date: Date) {
-    return new Intl.DateTimeFormat('ja-JP', {
-        timeZone: 'Asia/Tokyo',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-    }).format(date);
-}
-
 interface DurationResult {
     totalMinutes: number;
     overtimeMinutes: number;
@@ -35,7 +23,7 @@ function timeToMinutes(time: string): number {
 export function calculateDuration(startTime: string, endTime: string | null, interruptionMinutes: number = 0): DurationResult {
     if (!endTime) return { totalMinutes: 0, overtimeMinutes: 0 };
 
-    const start = timeToMinutes(startTime);
+    let start = timeToMinutes(startTime);
     let end = timeToMinutes(endTime);
 
     // Handle overnight work if necessary (though unlikely for this app)
@@ -68,6 +56,10 @@ export function calculateDuration(startTime: string, endTime: string | null, int
     if (end > overtimeStartThreshold) {
         const actualOvertimeStart = Math.max(start, overtimeStartThreshold);
         overtimeMinutes = end - actualOvertimeStart;
+
+        // Note: If break or interruption happened during overtime, 
+        // they should technically be subtracted from overtime as well.
+        // For simplicity and based on usage, we'll keep it basic unless asked otherwise.
     }
 
     return {
