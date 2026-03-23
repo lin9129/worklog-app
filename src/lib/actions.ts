@@ -476,8 +476,8 @@ export async function deleteWorkLog(id: string) {
                     }
                 })
 
-                // Delete only if it has no planned production count or time (meaning it was auto-created)
-                if (summary && !summary.productionCount && !summary.productionTime) {
+                // Delete the LotSummary if it exists
+                if (summary) {
                     await prisma.lotSummary.delete({ where: { id: summary.id } })
                 }
             }
