@@ -79,11 +79,11 @@ export default function LotSummaryView({ data, mode = 'ongoing' }: Props) {
                                         <td className="p-4 text-primary font-medium">{item.customerName || '-'}</td>
                                         <td className="p-4">{item.productionCount || 1}</td>
                                         <td className="p-4">
-                                            <div className="font-bold">{(item.totalDuration / 60).toFixed(1)}h</div>
+                                            <div className="font-bold">{(item.totalDuration / 60).toFixed(1)}h <span style={{ fontWeight: 'normal', fontSize: '0.8rem', opacity: 0.7 }}>({item.totalDuration}分)</span></div>
                                             <div style={{ fontSize: '0.65rem', display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '4px' }}>
-                                                <span style={{ opacity: 0.8 }}>正: {(item.fullTimeDuration / 60).toFixed(1)}h</span>
-                                                <span style={{ opacity: 0.8 }}>パ: {(item.partTimeDuration / 60).toFixed(1)}h</span>
-                                                <span className="text-danger">残業: {(item.totalOvertime / 60).toFixed(1)}h</span>
+                                                <span style={{ opacity: 0.8 }}>正: {(item.fullTimeDuration / 60).toFixed(1)}h ({item.fullTimeDuration}分)</span>
+                                                <span style={{ opacity: 0.8 }}>パ: {(item.partTimeDuration / 60).toFixed(1)}h ({item.partTimeDuration}分)</span>
+                                                <span className="text-danger">残業: {(item.totalOvertime / 60).toFixed(1)}h ({item.totalOvertime}分)</span>
                                             </div>
                                         </td>
                                         <td className="p-4">
@@ -119,11 +119,11 @@ export default function LotSummaryView({ data, mode = 'ongoing' }: Props) {
                                                     {item.completedAt ? new Date(item.completedAt).toLocaleDateString() : '-'}
                                                 </td>
                                                 <td className="p-4">
-                                                    <div className="font-bold">{(item.totalDuration / 60).toFixed(1)}h</div>
+                                                    <div className="font-bold">{(item.totalDuration / 60).toFixed(1)}h <span style={{ fontWeight: 'normal', fontSize: '0.8rem', opacity: 0.7 }}>({item.totalDuration}分)</span></div>
                                                     <div style={{ fontSize: '0.65rem', display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '4px' }}>
-                                                        <span style={{ opacity: 0.8 }}>正: {(item.fullTimeDuration / 60).toFixed(1)}h</span>
-                                                        <span style={{ opacity: 0.8 }}>パ: {(item.partTimeDuration / 60).toFixed(1)}h</span>
-                                                        <span className="text-danger">残業: {(item.totalOvertime / 60).toFixed(1)}h</span>
+                                                        <span style={{ opacity: 0.8 }}>正: {(item.fullTimeDuration / 60).toFixed(1)}h ({item.fullTimeDuration}分)</span>
+                                                        <span style={{ opacity: 0.8 }}>パ: {(item.partTimeDuration / 60).toFixed(1)}h ({item.partTimeDuration}分)</span>
+                                                        <span className="text-danger">残業: {(item.totalOvertime / 60).toFixed(1)}h ({item.totalOvertime}分)</span>
                                                     </div>
                                                 </td>
                                                 <td className="p-4">
@@ -157,8 +157,8 @@ export default function LotSummaryView({ data, mode = 'ongoing' }: Props) {
                                                         {item.users.map((u: any) => (
                                                             <div key={u.name} className="glass-light p-3" style={{ borderRadius: '12px', minWidth: '120px', borderTop: u.employmentType === '正社員' ? '2px solid var(--primary)' : '2px solid var(--success)' }}>
                                                                 <div className="text-xs text-secondary">{u.name} <span style={{fontSize: '0.6rem', opacity: 0.6}}>({u.employmentType || '未設定'})</span></div>
-                                                                <div className="font-bold">{(u.duration / 60).toFixed(1)}h</div>
-                                                                <div className="text-xs text-danger">残業: {(u.overtime / 60).toFixed(1)}h</div>
+                                                                <div className="font-bold">{(u.duration / 60).toFixed(1)}h <span style={{ fontWeight: 'normal', fontSize: '0.7rem' }}>({u.duration}分)</span></div>
+                                                                <div className="text-xs text-danger">残業: {(u.overtime / 60).toFixed(1)}h ({u.overtime}分)</div>
                                                             </div>
                                                         ))}
                                                     </div>
@@ -167,7 +167,9 @@ export default function LotSummaryView({ data, mode = 'ongoing' }: Props) {
                                                     <div className="flex flex-col gap-2">
                                                         {item.dates.map((d: any) => (
                                                             <div key={d.date} className="text-xs">
-                                                                <div className="font-bold text-primary mb-1">{new Date(d.date).toLocaleDateString()} (計: {(d.dailyDuration / 60).toFixed(1)}h)</div>
+                                                                <div className="font-bold text-primary mb-1">
+                                                                    {new Date(d.date).toLocaleDateString()} (通常計: {(d.dailyDuration / 60).toFixed(1)}h / 残業計: {(d.dailyOvertime / 60).toFixed(1)}h)
+                                                                </div>
                                                                 <div className="flex flex-wrap gap-2">
                                                                     {d.logs.map((l: any, idx: number) => (
                                                                         <div key={idx} className="bg-white/5 p-2 rounded">
