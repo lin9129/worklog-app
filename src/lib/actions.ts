@@ -452,7 +452,37 @@ export async function updateWorkLog(id: string, formData: FormData) {
 export async function deleteWorkLog(id: string) {
     if (!id || typeof id !== 'string' || id.trim() === '') throw new Error('IDが指定されていません')
     try {
+        const log = await prisma.workLog.findUnique({ where: { id } })
+        
         await prisma.workLog.delete({ where: { id } })
+
+        if (log && log.lotNumber) {
+            // Check if any other logs exist for this lot (matching lotNumber + product)
+            const remainingCount = await prisma.workLog.count({
+                where: {
+                    lotNumber: log.lotNumber,
+                    productId: log.productId,
+                    manualProductName: log.manualProductName || null
+                }
+            })
+
+            if (remainingCount === 0) {
+                // Find corresponding LotSummary
+                const summary = await prisma.lotSummary.findFirst({
+                    where: {
+                        lotNumber: log.lotNumber,
+                        productId: log.productId,
+                        manualProductName: log.manualProductName || null
+                    }
+                })
+
+                // Delete only if it has no planned production count or time (meaning it was auto-created)
+                if (summary && !summary.productionCount && !summary.productionTime) {
+                    await prisma.lotSummary.delete({ where: { id: summary.id } })
+                }
+            }
+        }
+
         revalidatePath('/')
         revalidatePath('/lot-summary')
     } catch (error: any) {
@@ -573,8 +603,9 @@ export async function getLotSummaryData() {
                 return lLot === sLot && lPid === sPid && lManual === sManual
             })
 
-            const totalDuration = lotLogs.reduce((acc: number, l: any) => acc + (l.duration || 0), 0)
+            const totalRegular = lotLogs.reduce((acc: number, l: any) => acc + (l.duration || 0), 0)
             const totalOvertime = lotLogs.reduce((acc: number, l: any) => acc + (l.overtimeDuration || 0), 0)
+            const totalSum = totalRegular + totalOvertime
 
             const userMap = new Map<string, { name: string, duration: number, overtime: number, employmentType: string | null }>()
             let fullTimeDuration = 0
@@ -622,13 +653,14 @@ export async function getLotSummaryData() {
                 productionTime: s.productionTime,
                 deliveryDate: s.deliveryDate,
                 remarks: s.remarks,
+                department: s.department,
                 isCompleted: s.isCompleted,
                 completedAt: s.completedAt,
-                totalDuration,
+                totalDuration: totalSum,
                 totalOvertime,
-                fullTimeDuration,
+                fullTimeDuration: fullTimeDuration + fullTimeOvertime, // Full time total
                 fullTimeOvertime,
-                partTimeDuration,
+                partTimeDuration: partTimeDuration + partTimeOvertime, // Part time total
                 partTimeOvertime,
                 users: Array.from(userMap.values()),
                 dates: Array.from(datesMap.values()).sort((a, b) => b.date.localeCompare(a.date))

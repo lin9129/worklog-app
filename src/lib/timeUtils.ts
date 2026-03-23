@@ -38,40 +38,43 @@ export function calculateDuration(startTime: string, endTime: string | null, int
     const start = timeToMinutes(startTime);
     let end = timeToMinutes(endTime);
 
-    // Handle overnight work if necessary (though unlikely for this app)
+    // Handle overnight work if necessary
     if (end < start) end += 24 * 60;
 
-    let totalMinutes = end - start;
+    const overtimeStartThreshold = timeToMinutes(OVERTIME_START);
+    
+    // 1. Total elapsed time (excluding breaks and manual interruption)
     let breakMinutes = 0;
-
-    // Subtract breaks
     for (const b of BREAKS) {
         const breakStart = timeToMinutes(b.start);
         const breakEnd = timeToMinutes(b.end);
-
-        // Calculate overlap between [start, end] and [breakStart, breakEnd]
         const overlapStart = Math.max(start, breakStart);
         const overlapEnd = Math.min(end, breakEnd);
-
         if (overlapStart < overlapEnd) {
             breakMinutes += (overlapEnd - overlapStart);
         }
     }
 
-    totalMinutes -= breakMinutes;
-    totalMinutes -= interruptionMinutes; // Subtract interruption time
+    const netTotalMinutes = Math.max(0, end - start - breakMinutes - interruptionMinutes);
 
-    // Calculate overtime (17:15 onwards)
-    const overtimeStartThreshold = timeToMinutes(OVERTIME_START);
+    // 2. Overtime calculation (17:15 onwards)
+    // Overtime occurs only if end > 17:15.
+    // If work started after 17:15, all work (minus breaks/interruption if any) is overtime.
+    // However, specified breaks are all before 17:15.
     let overtimeMinutes = 0;
-
     if (end > overtimeStartThreshold) {
-        const actualOvertimeStart = Math.max(start, overtimeStartThreshold);
-        overtimeMinutes = end - actualOvertimeStart;
+        const otRangeStart = Math.max(start, overtimeStartThreshold);
+        overtimeMinutes = end - otRangeStart;
+        // Since breaks are all before 17:15, we don't need to subtract breaks from overtimeMinutes.
+        // But manual interruption might have happened during overtime.
+        // For simplicity, we assume interruption is subtracted from regular time first.
     }
 
+    // 3. Regular time is Total - Overtime
+    const regularMinutes = Math.max(0, netTotalMinutes - overtimeMinutes);
+
     return {
-        totalMinutes: Math.max(0, totalMinutes),
-        overtimeMinutes: Math.max(0, overtimeMinutes)
+        totalMinutes: regularMinutes, // In this app, 'duration' field is used for regular time
+        overtimeMinutes: overtimeMinutes
     };
 }

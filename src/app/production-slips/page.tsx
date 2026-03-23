@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { getMasterData, upsertProductionSlip, getActiveProductionSlips } from '@/lib/actions'
+import { getMasterData, upsertProductionSlip, getActiveProductionSlips, deleteLotSummary } from '@/lib/actions'
 import Link from 'next/link'
 
 export default function ProductionSlipsPage() {
@@ -11,6 +11,8 @@ export default function ProductionSlipsPage() {
     const [selectedDept, setSelectedDept] = useState('ALL')
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [editingId, setEditingId] = useState<string | null>(null)
+    const [currentPage, setCurrentPage] = useState(1)
+    const ITEMS_PER_PAGE = 10
 
     // Form State
     const [lotNumber, setLotNumber] = useState('')
@@ -102,6 +104,18 @@ export default function ProductionSlipsPage() {
         setDeliveryDate(slip.deliveryDate ? new Date(slip.deliveryDate).toISOString().split('T')[0] : '')
         setDepartment(slip.department || '')
         window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+
+    const handleDelete = async (id: string, lotNum: string) => {
+        if (!confirm(`製作伝票「${lotNum}」を削除しますか？\n※この操作は取り消せません。`)) return
+        
+        try {
+            await deleteLotSummary(id)
+            alert('削除しました')
+            loadData()
+        } catch (err: any) {
+            alert(`削除に失敗しました: ${err?.message || '不明なエラー'}`)
+        }
     }
 
     if (loading) return <div className="container p-8">読み込み中...</div>
@@ -236,66 +250,116 @@ export default function ProductionSlipsPage() {
                             </div>
                         </div>
 
-                        <div className="flex flex-col gap-4">
-                            {filteredSlips.length === 0 ? (
-                                <p className="text-center p-8 text-secondary">該当する伝票はありません</p>
-                            ) : (
-                                filteredSlips.map(slip => (
-                                    <div key={slip.id} className="glass-light p-4 flex justify-between items-center" style={{ borderRadius: '12px' }}>
-                                        <div>
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <span className="badge" style={{ background: 'var(--primary)', color: 'white', fontSize: '0.7rem' }}>{slip.department || '共通'}</span>
-                                                <span style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>{slip.lotNumber}</span>
-                                            </div>
-                                            <div style={{ fontSize: '1rem', fontWeight: '500' }}>
-                                                {slip.product?.name || slip.manualProductName}
-                                                {slip.customerName && <span style={{ marginLeft: '0.5rem', color: 'var(--primary)', fontSize: '0.9rem' }}>[{slip.customerName}様]</span>}
-                                            </div>
-                                            
-                                            {/* Details in white frame */}
-                                            <div style={{ 
-                                                background: 'white', 
-                                                color: '#333', 
-                                                padding: '0.8rem', 
-                                                borderRadius: '8px', 
-                                                marginTop: '0.8rem',
-                                                fontSize: '0.9rem',
-                                                border: '1px solid #ddd'
-                                            }}>
-                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                                                    <div><strong>製作数:</strong> {slip.productionCount || 0}</div>
-                                                    <div><strong>納期:</strong> {slip.deliveryDate ? new Date(slip.deliveryDate).toLocaleDateString() : '未定'}</div>
-                                                </div>
-                                                <div style={{ marginTop: '0.5rem', borderTop: '1px solid #eee', paddingTop: '0.5rem' }}>
-                                                    <strong>概要:</strong> {slip.remarks || '特記事項なし'}
-                                                </div>
-                                                {slip.productionTime && (
-                                                    <div style={{ marginTop: '0.3rem', fontSize: '0.8rem', color: '#666' }}>
-                                                        予定製作時間: {slip.productionTime}分
+                        {/* Pagination Logic */}
+                        {(() => {
+                            const filtered = selectedDept === 'ALL' ? slips : slips.filter(s => s.department === selectedDept)
+                            const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE)
+                            const paginatedSlips = filtered.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE)
+
+                            return (
+                                <>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4" style={{ minWidth: '0' }}>
+                                        {paginatedSlips.length === 0 ? (
+                                            <p className="col-span-full text-center p-8 text-secondary">該当する伝票はありません</p>
+                                        ) : (
+                                            paginatedSlips.map(slip => (
+                                                <div key={slip.id} className="glass-light p-4 flex flex-col justify-between" style={{ borderRadius: '16px', border: '1px solid rgba(255,255,255,0.1)', position: 'relative' }}>
+                                                    <div style={{ flex: 1 }}>
+                                                        <div className="flex items-center justify-between mb-2">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="badge" style={{ background: 'var(--primary)', color: 'white', fontSize: '0.7rem' }}>{slip.department || '共通'}</span>
+                                                                <span style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>{slip.lotNumber}</span>
+                                                            </div>
+                                                            <div className="flex gap-1">
+                                                                <button
+                                                                    onClick={() => handleEdit(slip)}
+                                                                    className="btn-icon-sm"
+                                                                    title="編集"
+                                                                    style={{ background: 'rgba(255,193,7,0.1)', color: '#ffc107', padding: '4px', borderRadius: '6px' }}
+                                                                >
+                                                                    ✏️
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleDelete(slip.id, slip.lotNumber)}
+                                                                    className="btn-icon-sm"
+                                                                    title="削除"
+                                                                    style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', padding: '4px', borderRadius: '6px' }}
+                                                                >
+                                                                    🗑️
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                        <div style={{ fontSize: '1.05rem', fontWeight: '600', marginBottom: '0.8rem' }}>
+                                                            {slip.product?.name || slip.manualProductName}
+                                                            {slip.customerName && <span style={{ marginLeft: '0.5rem', color: 'var(--primary)', fontSize: '0.85rem' }}>[{slip.customerName}様]</span>}
+                                                        </div>
+                                                        
+                                                        {/* Details in white frame */}
+                                                        <div style={{ 
+                                                            background: 'white', 
+                                                            color: '#333', 
+                                                            padding: '0.8rem', 
+                                                            borderRadius: '10px', 
+                                                            fontSize: '0.85rem',
+                                                            border: '1px solid #e2e8f0',
+                                                            boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                                                        }}>
+                                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                                                                <div><strong style={{ opacity: 0.7 }}>製作数:</strong> {slip.productionCount || 0}</div>
+                                                                <div><strong style={{ opacity: 0.7 }}>納期:</strong> {slip.deliveryDate ? new Date(slip.deliveryDate).toLocaleDateString() : '未定'}</div>
+                                                            </div>
+                                                            <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '0.5rem', marginBottom: '0.5rem' }}>
+                                                                <strong style={{ opacity: 0.7 }}>概要:</strong>
+                                                                <div style={{ marginTop: '2px', wordBreak: 'break-all' }}>{slip.remarks || '特記事項なし'}</div>
+                                                            </div>
+                                                            {slip.productionTime && (
+                                                                <div style={{ fontSize: '0.75rem', color: '#64748b', textAlign: 'right' }}>
+                                                                    予定: {slip.productionTime}分
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                        <div className="flex flex-col gap-2">
-                                            <button
-                                                onClick={() => handleEdit(slip)}
-                                                className="btn btn-sm"
-                                                style={{ background: 'rgba(255,193,7,0.2)', color: '#ffc107', padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
-                                            >
-                                                編集 ✏️
-                                            </button>
-                                            <Link
-                                                href={`/?lot=${slip.lotNumber}&pid=${slip.productId || ''}&manual=${encodeURIComponent(slip.manualProductName || '')}&customer=${encodeURIComponent(slip.customerName || '')}&dept=${encodeURIComponent(slip.department || '')}`}
-                                                className="btn btn-secondary btn-sm"
-                                                style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
-                                            >
-                                                記入 ✍️
-                                            </Link>
-                                        </div>
+                                                    <div style={{ marginTop: '1rem' }}>
+                                                        <Link
+                                                            href={`/?lot=${slip.lotNumber}&pid=${slip.productId || ''}&manual=${encodeURIComponent(slip.manualProductName || '')}&customer=${encodeURIComponent(slip.customerName || '')}&dept=${encodeURIComponent(slip.department || '')}`}
+                                                            className="btn btn-secondary w-full"
+                                                            style={{ padding: '0.6rem', fontSize: '0.9rem', borderRadius: '10px' }}
+                                                        >
+                                                            記入画面へ ✍️
+                                                        </Link>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        )}
                                     </div>
-                                ))
-                            )}
-                        </div>
+
+                                    {/* Pagination Controls */}
+                                    {totalPages > 1 && (
+                                        <div className="flex justify-center items-center gap-4 mt-8">
+                                            <button 
+                                                disabled={currentPage === 1}
+                                                onClick={() => { setCurrentPage(p => p - 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                                                className="btn btn-sm"
+                                                style={{ background: 'rgba(255,255,255,0.05)', opacity: currentPage === 1 ? 0.3 : 1 }}
+                                            >
+                                                ◀ 前のページ
+                                            </button>
+                                            <span style={{ fontSize: '0.9rem', fontWeight: '500' }}>
+                                                {currentPage} / {totalPages}
+                                            </span>
+                                            <button 
+                                                disabled={currentPage === totalPages}
+                                                onClick={() => { setCurrentPage(p => p + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                                                className="btn btn-sm"
+                                                style={{ background: 'rgba(255,255,255,0.05)', opacity: currentPage === totalPages ? 0.3 : 1 }}
+                                            >
+                                                次のページ ▶
+                                            </button>
+                                        </div>
+                                    )}
+                                </>
+                            )
+                        })()}
                     </section>
                 </div>
             </div>
