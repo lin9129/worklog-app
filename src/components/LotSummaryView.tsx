@@ -76,7 +76,7 @@ export default function LotSummaryView({ data, mode = 'ongoing' }: Props) {
                 <div className="p-3 flex flex-wrap justify-between items-center gap-3 px-6" style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                     <div className="flex flex-wrap items-center gap-4">
                         <h2 className="card-title mb-0" style={{ fontSize: '1rem', whiteSpace: 'nowrap' }}>
-                            {mode === 'ongoing' ? '📋 稼働中ロット' : '✅ 完成品実績'}
+                             {mode === 'ongoing' ? '📋 稼働中ロット (v1.3)' : '✅ 完成品実績 (v1.3)'}
                         </h2>
                         
                         <Link href="/calendar" className="btn btn-sm" style={{ background: 'rgba(255,255,255,0.05)', fontSize: '0.75rem' }}>
