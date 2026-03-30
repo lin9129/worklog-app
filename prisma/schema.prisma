@@ -90,9 +90,16 @@ model LotSummary {
   remarks           String?
   deliveryDate      DateTime?
   department        String?
+  status            String    @default("未着手")
   isCompleted       Boolean   @default(false)
   completedAt       DateTime?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
   product           Product?  @relation(fields: [productId], references: [id])
+}
+
+model Holiday {
+  id     String   @id @default(cuid())
+  date   DateTime @unique
+  reason String?
 }

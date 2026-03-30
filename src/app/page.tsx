@@ -46,6 +46,9 @@ export default async function Home() {
             <Link href="/production-slips" className="btn" style={{ background: 'var(--primary)', color: 'white' }}>
               📋 製作伝票
             </Link>
+            <Link href="/calendar" className="btn" style={{ background: 'rgba(255,255,255,0.1)' }}>
+              📅 カレンダー
+            </Link>
             <Link href="/lot-summary" className="btn" style={{ background: 'rgba(255,255,255,0.1)' }}>
               📊 ロット集計
             </Link>

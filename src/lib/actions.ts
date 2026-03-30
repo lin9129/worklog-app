@@ -206,8 +206,9 @@ export async function upsertProductionSlip(data: any): Promise<{ success: boolea
             remarks,
             deliveryDate,
             department,
-            isCompleted: false, // 登録・更新したら「製作中」にする
-            completedAt: null
+            isCompleted: false,
+            completedAt: null,
+            status: "未着手" // 伝票登録時は未着手
         }
 
         if (id && typeof id === 'string' && id.trim() !== '') {
@@ -398,8 +399,24 @@ export async function createWorkLog(formData: FormData) {
                         productId,
                         manualProductName: manualProductName || null,
                         customerName,
-                        department
+                        department,
+                        status: "製作中" // 作業記録から作成された場合は製作中
                     }
+                })
+            }
+
+            // Always ensure status is "製作中" when a work log is added
+            const summary = await prisma.lotSummary.findFirst({
+                where: { 
+                    lotNumber: trimmedLot,
+                    productId,
+                    manualProductName: manualProductName || null
+                }
+            })
+            if (summary && summary.status !== "製作中") {
+                await prisma.lotSummary.update({
+                    where: { id: summary.id },
+                    data: { status: "製作中" }
                 })
             }
         }
@@ -476,9 +493,12 @@ export async function deleteWorkLog(id: string) {
                     }
                 })
 
-                // Delete the LotSummary if it exists
+                // Update the LotSummary to "未着手" instead of deleting
                 if (summary) {
-                    await prisma.lotSummary.delete({ where: { id: summary.id } })
+                    await prisma.lotSummary.update({
+                        where: { id: summary.id },
+                        data: { status: "未着手" }
+                    })
                 }
             }
         }
@@ -573,13 +593,23 @@ export async function getLotSummaryData() {
             user: l.userId ? userMap.get(l.userId) : null
         }))
 
+        // Fetch Holidays
+        const holidays = await prisma.holiday.findMany();
+        const holidaySet = new Set(holidays.map((h: any) => {
+            const dateStr = new Intl.DateTimeFormat('sv-SE', {
+                timeZone: 'Asia/Tokyo',
+                year: 'numeric', month: '2-digit', day: '2-digit'
+            }).format(h.date);
+            return dateStr;
+        }));
+
         const summaries = await prisma.lotSummary.findMany({
             select: {
                 id: true, lotNumber: true, productId: true,
                 manualProductName: true, customerName: true,
                 productionCount: true, productionTime: true,
                 deliveryDate: true, remarks: true, department: true,
-                isCompleted: true, completedAt: true, createdAt: true,
+                status: true, isCompleted: true, completedAt: true, createdAt: true,
                 product: { select: { name: true } }
             }
         })
@@ -607,6 +637,65 @@ export async function getLotSummaryData() {
             const totalOvertime = lotLogs.reduce((acc: number, l: any) => acc + (l.overtimeDuration || 0), 0)
             const totalSum = totalRegular + totalOvertime
 
+            // derive startedAt from logs
+            let startedAt = null
+            if (lotLogs.length > 0) {
+                const dates = lotLogs.map((l: any) => new Date(l.date).getTime())
+                startedAt = new Date(Math.min(...dates))
+            }
+
+            // Format Dates safely to JST string to avoid Hydration issues
+            const getJSTDateString = (d: Date | string | number | null): string | null => {
+                if (!d) return null;
+                const srcDate = new Date(d);
+                if (isNaN(srcDate.getTime())) return null;
+                const formatter = new Intl.DateTimeFormat('en-US', {
+                    timeZone: 'Asia/Tokyo',
+                    year: 'numeric', month: '2-digit', day: '2-digit'
+                });
+                const parts = formatter.formatToParts(srcDate);
+                const yr = parts.find(p => p.type === 'year')?.value;
+                const mo = parts.find(p => p.type === 'month')?.value;
+                const da = parts.find(p => p.type === 'day')?.value;
+                return `${yr}-${mo}-${da}`;
+            };
+
+            const startedAtStr = startedAt ? getJSTDateString(startedAt) : null;
+            const dueDateStr = s.deliveryDate ? getJSTDateString(s.deliveryDate) : null;
+            
+            // Calculate expected completion date (estimatedEndDate) from startedAt ignoring holidays
+            let estimatedEndDate = null;
+            if (s.productionTime && startedAtStr) {
+                let remainingMins = s.productionTime;
+                let current = new Date(startedAtStr + 'T00:00:00Z'); // treated as UTC midnight
+                
+                while (remainingMins > 0) {
+                    const currentJst = getJSTDateString(current)!;
+                    if (current.getUTCDay() !== 0 && !holidaySet.has(currentJst)) {
+                        remainingMins -= 420;
+                    }
+                    if (remainingMins > 0) {
+                        current.setUTCDate(current.getUTCDate() + 1);
+                    }
+                }
+                estimatedEndDate = getJSTDateString(current);
+            }
+
+            // If there are actual logs that go BEYOND the originally estimated end date, extend the bar to that day.
+            const originalEstimatedEndDate = estimatedEndDate;
+            if (estimatedEndDate && lotLogs.length > 0) {
+                const dates = lotLogs.map((l: any) => getJSTDateString(l.date)).filter(Boolean).sort((a: any, b: any) => b.localeCompare(a));
+                const lastLogDate = dates[0];
+                if (lastLogDate > estimatedEndDate) {
+                    estimatedEndDate = lastLogDate;
+                }
+            }
+
+            // progress rate
+            const plannedMinutes = s.productionTime || 0;
+            const actualMinutes = totalSum;
+            const progressRate = plannedMinutes > 0 ? Math.min(100, Math.floor((actualMinutes / plannedMinutes) * 100)) : 0;
+
             const userMap = new Map<string, { name: string, duration: number, overtime: number, employmentType: string | null }>()
             let fullTimeDuration = 0
             let fullTimeOvertime = 0
@@ -633,7 +722,8 @@ export async function getLotSummaryData() {
 
             const datesMap = new Map<string, { date: string, dailyDuration: number, dailyOvertime: number, logs: any[] }>()
             lotLogs.forEach((l: any) => {
-                const d = l.date.toISOString().split('T')[0]
+                const d = getJSTDateString(l.date)
+                if (!d) return
                 if (!datesMap.has(d)) {
                     datesMap.set(d, { date: d, dailyDuration: 0, dailyOvertime: 0, logs: [] })
                 }
@@ -643,6 +733,26 @@ export async function getLotSummaryData() {
                 dg.logs.push(l)
             })
 
+            // Flatten daily logs into worker-specific records for Gantt detail view
+            const dates = Array.from(datesMap.values()).sort((a, b) => a.date.localeCompare(b.date));
+            
+            // Calculate when the time exceeded the plan
+            let overrunDate = null;
+            let cumTotal = 0;
+            for (const d of dates) {
+                cumTotal += (d.dailyDuration + d.dailyOvertime);
+                if (plannedMinutes > 0 && cumTotal > plannedMinutes && !overrunDate) {
+                    overrunDate = d.date;
+                }
+            }
+
+            const dailyLogs = dates.flatMap(d => d.logs.map((log: any) => ({
+                date: d.date,
+                workerName: log.user?.name || '不明',
+                normalMinutes: log.duration || 0,
+                overtimeMinutes: log.overtimeDuration || 0
+            })));
+
             return {
                 id: s.id,
                 lotNumber: s.lotNumber,
@@ -650,27 +760,42 @@ export async function getLotSummaryData() {
                 productName: s.product?.name || s.manualProductName || '未設定',
                 customerName: s.customerName,
                 productionCount: s.productionCount,
-                productionTime: s.productionTime,
-                deliveryDate: s.deliveryDate,
-                remarks: s.remarks,
-                department: s.department,
-                isCompleted: s.isCompleted,
-                completedAt: s.completedAt,
+                productionTime: plannedMinutes,
+                plannedMinutes,
+                actualMinutes,
                 totalDuration: totalSum,
-                totalOvertime,
-                fullTimeDuration: fullTimeDuration + fullTimeOvertime, // Full time total
+                totalRegular: totalRegular,
+                totalOvertime: totalOvertime,
+                fullTimeDuration: fullTimeDuration + fullTimeOvertime,
                 fullTimeOvertime,
-                partTimeDuration: partTimeDuration + partTimeOvertime, // Part time total
+                partTimeDuration: partTimeDuration + partTimeOvertime,
                 partTimeOvertime,
+                remarks: s.remarks,
+                deliveryDate: dueDateStr,
+                dueDate: dueDateStr,
+                department: s.department,
+                status: s.isCompleted ? '完成' : (lotLogs.length > 0 ? '製作中' : '未着手'),
+                isCompleted: s.isCompleted,
+                startedAt: startedAtStr,
+                startDate: startedAtStr,
+                expectedCompletionDate: originalEstimatedEndDate,
+                originalEstimatedEndDate: originalEstimatedEndDate,
+                estimatedEndDate: estimatedEndDate,
+                overrunDate: overrunDate,
+                completedAt: s.completedAt ? getJSTDateString(s.completedAt) : null,
                 users: Array.from(userMap.values()),
-                dates: Array.from(datesMap.values()).sort((a, b) => b.date.localeCompare(a.date))
+                dates,
+                dailyLogs,
+                progressRate
             }
         })
 
         return result.sort((a: any, b: any) => {
             if (a.isCompleted && !b.isCompleted) return 1
             if (!a.isCompleted && b.isCompleted) return -1
-            return (b.completedAt?.getTime() || 0) - (a.completedAt?.getTime() || 0) || b.lotNumber.localeCompare(a.lotNumber)
+            const timeA = a.completedAt ? new Date(a.completedAt).getTime() : 0;
+            const timeB = b.completedAt ? new Date(b.completedAt).getTime() : 0;
+            return timeB - timeA || b.lotNumber.localeCompare(a.lotNumber)
         })
     } catch (error) {
         console.error('Lot summary failed:', error)
@@ -681,7 +806,7 @@ export async function getLotSummaryData() {
 export async function completeLot(id: string | null | undefined) {
     if (!id || typeof id !== 'string' || id.trim() === '') {
         console.error('Complete failed: ID is empty or invalid', id)
-        return
+        return { success: false, error: '無効なIDです' }
     }
     try {
         await prisma.lotSummary.update({
@@ -693,8 +818,10 @@ export async function completeLot(id: string | null | undefined) {
         })
         revalidatePath('/lot-summary')
         revalidatePath('/completed-products')
-    } catch (error) {
+        return { success: true }
+    } catch (error: any) {
         console.error('Complete failed:', error)
+        return { success: false, error: error.message || '完成処理に失敗しました' }
     }
 }
 
@@ -710,5 +837,38 @@ export async function deleteLotSummary(id: string) {
     } catch (error: any) {
         console.error('Delete lot summary failed:', error)
         throw new Error(`製作記録の削除に失敗しました: ${error?.message || error}`)
+    }
+}
+
+export async function getHolidays() {
+    try {
+        const holidays = await prisma.holiday.findMany();
+        return holidays.map((h: any) => {
+             const date = new Date(h.date);
+             date.setUTCHours(date.getUTCHours() + 9);
+             return date.toISOString().split('T')[0];
+        });
+    } catch {
+        return [];
+    }
+}
+
+export async function toggleHoliday(dateStr: string) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return { success: false, error: 'Invalid date format' };
+    try {
+        const dateObj = new Date(dateStr + 'T00:00:00Z');
+        const existing = await prisma.holiday.findUnique({
+            where: { date: dateObj }
+        });
+        if (existing) {
+            await prisma.holiday.delete({ where: { id: existing.id } });
+        } else {
+            await prisma.holiday.create({ data: { date: dateObj } });
+        }
+        revalidatePath('/calendar');
+        return { success: true };
+    } catch (e: any) {
+        console.error('toggleHoliday failed:', e);
+        return { success: false, error: e.message };
     }
 }
