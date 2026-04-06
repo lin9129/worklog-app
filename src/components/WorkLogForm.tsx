@@ -79,9 +79,20 @@ function WorkLogFormInner({ masterData }: Props) {
     const filteredProducts = selectedDept ? masterData.products.filter(p => p.department === selectedDept) : masterData.products
 
     const availableParts = productId ? masterData.parts.filter(p => p.productId === productId) : []
-    const availableProcesses = productId
-        ? masterData.processes.filter(p => p.products?.some((prod: any) => prod.id === productId))
-        : masterData.processes
+    const availableProcesses = (() => {
+        if (partId) {
+            const selectedPart = masterData.parts.find(p => p.id === partId)
+            if (selectedPart && selectedPart.processes && selectedPart.processes.length > 0) {
+                return selectedPart.processes
+            }
+        }
+        if (productId) {
+            return masterData.processes.filter(p => 
+                p.products && p.products.some((prod: any) => prod.id === productId)
+            )
+        }
+        return []
+    })()
 
     const handleSlipSelect = (slipId: string) => {
         setSelectedSlipId(slipId)
@@ -234,7 +245,7 @@ function WorkLogFormInner({ masterData }: Props) {
                                 value={availableProcesses.some((p: any) => p.name === processName) ? processName : ''}
                                 onChange={e => setProcessName(e.target.value)}
                             >
-                                <option value="">商品を選択してください</option>
+                                <option value="">{productId ? (availableProcesses.length > 0 ? '工程を選択してください' : '該当する工程がありません') : '商品を選択してください'}</option>
                                 {availableProcesses.map((p: any) => (
                                     <option key={p.id} value={p.name}>{p.name}</option>
                                 ))}

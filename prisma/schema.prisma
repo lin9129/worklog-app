@@ -38,19 +38,24 @@ model Process {
   updatedAt DateTime  @updatedAt
   workLogs  WorkLog[]
   products  Product[] @relation("ProcessToProduct")
+  parts     Part[]    @relation("ProcessToPart")
 }
 
 model Part {
   id                String    @id @default(cuid())
-  name              String    @unique
+  name              String
   modelNumber       String?
   description       String?
   componentCategory String?
   productId         String
+  department        String    @default("")
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
   product           Product   @relation(fields: [productId], references: [id])
   workLogs          WorkLog[]
+  processes         Process[] @relation("ProcessToPart")
+
+  @@unique([name, productId, department])
 }
 
 model WorkLog {

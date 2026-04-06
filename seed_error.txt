@@ -1,0 +1,42 @@
+Seeding initial data...
+Upserted 3 users.
+Upserted 3 products.
+Upserted 8 processes and linked to all products.
+PrismaClientValidationError: 
+Invalid `prisma.part.upsert()` invocation in
+C:\Users\0912w\.gemini\antigravity\scratch\worklog-app\prisma\seed.ts:77:32
+
+  74   { name: '閭梧攸', productId: productTansu.id, modelNumber: 'T-03' },
+  75 ]
+  76 const createdParts = await Promise.all(
+竊・77   parts.map(p => prisma.part.upsert({
+         where: {
+           name_productId_department: {
+             name: "螟ｩ譚ｿ",
+             productId: "cmnnmr58v0004trgka95rgtr9",
+       +     department: String
+           }
+         },
+         update: {
+           productId: "cmnnmr58v0004trgka95rgtr9",
+           modelNumber: "D-01",
+           department: null
+         },
+         create: {
+           name: "螟ｩ譚ｿ",
+           productId: "cmnnmr58v0004trgka95rgtr9",
+           modelNumber: "D-01",
+           department: null
+         }
+       })
+
+Argument `department` must not be null.
+    at Pn (C:\Users\0912w\.gemini\antigravity\scratch\worklog-app\node_modules\.prisma\client\runtime\library.js:29:1363)
+    at Un.handleRequestError (C:\Users\0912w\.gemini\antigravity\scratch\worklog-app\node_modules\.prisma\client\runtime\library.js:121:7090)
+    at Un.handleAndLogRequestError (C:\Users\0912w\.gemini\antigravity\scratch\worklog-app\node_modules\.prisma\client\runtime\library.js:121:6771)
+    at Un.request (C:\Users\0912w\.gemini\antigravity\scratch\worklog-app\node_modules\.prisma\client\runtime\library.js:121:6478)
+    at async l (C:\Users\0912w\.gemini\antigravity\scratch\worklog-app\node_modules\.prisma\client\runtime\library.js:130:9644)
+    at async Promise.all (index 0)
+    at async main (C:\Users\0912w\.gemini\antigravity\scratch\worklog-app\prisma\seed.ts:76:24) {
+  clientVersion: '6.4.1'
+}

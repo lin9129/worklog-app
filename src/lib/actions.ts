@@ -15,11 +15,17 @@ export async function getMasterData() {
             }),
             prisma.process.findMany({
                 orderBy: { name: 'asc' },
-                include: { products: { select: { id: true, name: true } } }
+                include: { 
+                    products: { select: { id: true, name: true } },
+                    parts: { select: { id: true, name: true } }
+                }
             }),
             prisma.part.findMany({
                 orderBy: { name: 'asc' },
-                include: { product: { select: { id: true, name: true } } }
+                include: { 
+                    product: { select: { id: true, name: true } },
+                    processes: { select: { id: true, name: true } }
+                }
             }),
         ])
 
@@ -68,7 +74,8 @@ export async function createMasterItem(type: 'user' | 'product' | 'process' | 'p
                 await prisma.process.create({
                     data: {
                         name: data.name,
-                        products: { connect: data.productIds?.map((id: string) => ({ id })) || [] }
+                        products: { connect: data.productIds?.map((id: string) => ({ id })) || [] },
+                        parts: { connect: data.partIds?.map((id: string) => ({ id })) || [] }
                     }
                 })
                 break
@@ -78,6 +85,7 @@ export async function createMasterItem(type: 'user' | 'product' | 'process' | 'p
                     data: {
                         name: data.name,
                         productId: data.productId,
+                        department: data.department || '',
                         modelNumber: data.modelNumber,
                         description: data.description,
                         componentCategory: data.componentCategory
@@ -126,7 +134,8 @@ export async function updateMasterItem(type: 'user' | 'product' | 'process' | 'p
                     where: { id },
                     data: {
                         name: data.name,
-                        products: { set: data.productIds?.map((id: string) => ({ id })) || [] }
+                        products: { set: data.productIds?.map((id: string) => ({ id })) || [] },
+                        parts: { set: data.partIds?.map((id: string) => ({ id })) || [] }
                     }
                 })
                 break
@@ -137,6 +146,7 @@ export async function updateMasterItem(type: 'user' | 'product' | 'process' | 'p
                     data: {
                         name: data.name,
                         productId: data.productId,
+                        department: data.department || '',
                         modelNumber: data.modelNumber,
                         description: data.description,
                         componentCategory: data.componentCategory

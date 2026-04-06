@@ -75,9 +75,15 @@ async function main() {
   ]
   const createdParts = await Promise.all(
     parts.map(p => prisma.part.upsert({
-      where: { name: p.name },
-      update: { productId: p.productId, modelNumber: p.modelNumber },
-      create: p
+      where: { 
+        name_productId_department: { 
+          name: p.name, 
+          productId: p.productId,
+          department: (p as any).department || '' 
+        } 
+      },
+      update: { productId: p.productId, modelNumber: p.modelNumber, department: (p as any).department || '' },
+      create: { ...p, department: (p as any).department || '' }
     }))
   )
   console.log(`Upserted ${createdParts.length} parts.`)
