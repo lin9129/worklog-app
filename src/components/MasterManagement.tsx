@@ -101,7 +101,10 @@ export default function MasterManagement({ masterData }: Props) {
     const handleDelete = async (id: string) => {
         if (!confirm('本当に削除しますか？')) return
         try {
-            await deleteMasterItem(activeTab, id)
+            const result = await deleteMasterItem(activeTab, id)
+            if (result && !result.success) {
+                alert(result.error)
+            }
         } catch (error: any) {
             alert(error.message)
         }
@@ -112,14 +115,16 @@ export default function MasterManagement({ masterData }: Props) {
     }
 
     const items = (activeTab === 'process' ? masterData.processes : masterData[`${activeTab}s` as keyof typeof masterData] || []).sort((a: any, b: any) => {
+        const nameA = a?.name || ''
+        const nameB = b?.name || ''
         if (activeTab === 'user') {
             const DEPT_ORDER: Record<string, number> = { '第一': 1, '第二': 2, '第三': 3, '第四': 4 };
-            const orderA = DEPT_ORDER[a.department || ''] || 99;
-            const orderB = DEPT_ORDER[b.department || ''] || 99;
+            const orderA = DEPT_ORDER[a?.department || ''] || 99;
+            const orderB = DEPT_ORDER[b?.department || ''] || 99;
             if (orderA !== orderB) return orderA - orderB;
-            return a.name.localeCompare(b.name, 'ja');
+            return nameA.localeCompare(nameB, 'ja');
         }
-        return a.name.localeCompare(b.name, 'ja');
+        return nameA.localeCompare(nameB, 'ja');
     })
 
     const renderItem = (item: any) => {
@@ -252,7 +257,7 @@ export default function MasterManagement({ masterData }: Props) {
                                 style={{ flex: 1, padding: '0.4rem', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', border: '1px solid var(--glass-border)', fontSize: '0.9rem' }}
                             >
                                 <option value="">すべて表示</option>
-                                {masterData.products.sort((a,b) => a.name.localeCompare(b.name, 'ja')).map((p: any) => (
+                                {masterData.products.sort((a,b) => (a?.name || '').localeCompare(b?.name || '', 'ja')).map((p: any) => (
                                     <option key={p.id} value={p.id}>{p.name}</option>
                                 ))}
                             </select>

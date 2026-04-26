@@ -32,49 +32,74 @@ function timeToMinutes(time: string): number {
     return h * 60 + m;
 }
 
-export function calculateDuration(startTime: string, endTime: string | null, interruptionMinutes: number = 0): DurationResult {
+export function calculateDuration(
+    startTime: string, 
+    endTime: string | null, 
+    manualInterruptionMinutes: number = 0, 
+    interruptionIntervals: { start: string, end: string }[] = []
+): DurationResult {
     if (!endTime) return { totalMinutes: 0, overtimeMinutes: 0 };
 
-    const start = timeToMinutes(startTime);
-    let end = timeToMinutes(endTime);
+    const startTotal = timeToMinutes(startTime);
+    let endTotal = timeToMinutes(endTime);
 
-    // Handle overnight work if necessary
-    if (end < start) end += 24 * 60;
+    // Handle overnight work (up to 24h)
+    if (endTotal < startTotal) endTotal += 24 * 60;
 
     const overtimeStartThreshold = timeToMinutes(OVERTIME_START);
     
-    // 1. Total elapsed time (excluding breaks and manual interruption)
-    let breakMinutes = 0;
-    for (const b of BREAKS) {
-        const breakStart = timeToMinutes(b.start);
-        const breakEnd = timeToMinutes(b.end);
-        const overlapStart = Math.max(start, breakStart);
-        const overlapEnd = Math.min(end, breakEnd);
-        if (overlapStart < overlapEnd) {
-            breakMinutes += (overlapEnd - overlapStart);
+    // Convert all exclusions (Standard Breaks + User Interruptions) to minute ranges
+    const exclusions = [...BREAKS, ...interruptionIntervals].map(b => ({
+        start: timeToMinutes(b.start),
+        end: timeToMinutes(b.end)
+    }));
+
+    // Handle overnight for exclusions if they appear to be relative to the work day
+    // (In this app, standard BREAKS are always fixed day times, but user interruptions 
+    // might cross midnight if the work day does. However, for simplicity and typical 
+    // usage, we'll assume interruptions are within the work day range.)
+    const normalizedExclusions = exclusions.map(ex => {
+        let s = ex.start;
+        let e = ex.end;
+        if (e < s) e += 24 * 60;
+        // If the exclusion is entirely before the work start, it might be for the next day's midnight
+        if (e <= startTotal) {
+            s += 24 * 60;
+            e += 24 * 60;
+        }
+        return { s, e };
+    });
+
+    let totalRegularMinutes = 0;
+    let totalOvertimeMinutes = 0;
+
+    for (let m = startTotal; m < endTotal; m++) {
+        // Check if this minute 'm' is within any exclusion
+        const isExcluded = normalizedExclusions.some(ex => m >= ex.s && m < ex.e);
+        if (isExcluded) continue;
+
+        if (m >= overtimeStartThreshold) {
+            totalOvertimeMinutes++;
+        } else {
+            totalRegularMinutes++;
         }
     }
 
-    const netTotalMinutes = Math.max(0, end - start - breakMinutes - interruptionMinutes);
-
-    // 2. Overtime calculation (17:15 onwards)
-    // Overtime occurs only if end > 17:15.
-    // If work started after 17:15, all work (minus breaks/interruption if any) is overtime.
-    // However, specified breaks are all before 17:15.
-    let overtimeMinutes = 0;
-    if (end > overtimeStartThreshold) {
-        const otRangeStart = Math.max(start, overtimeStartThreshold);
-        overtimeMinutes = end - otRangeStart;
-        // Since breaks are all before 17:15, we don't need to subtract breaks from overtimeMinutes.
-        // But manual interruption might have happened during overtime.
-        // For simplicity, we assume interruption is subtracted from regular time first.
+    // Subtract manual additional interruption (subtract from regular first, then overtime)
+    let remainingManual = manualInterruptionMinutes;
+    if (remainingManual > 0) {
+        const deductRegular = Math.min(totalRegularMinutes, remainingManual);
+        totalRegularMinutes -= deductRegular;
+        remainingManual -= deductRegular;
+        
+        if (remainingManual > 0) {
+            const deductOvertime = Math.min(totalOvertimeMinutes, remainingManual);
+            totalOvertimeMinutes -= deductOvertime;
+        }
     }
 
-    // 3. Regular time is Total - Overtime
-    const regularMinutes = Math.max(0, netTotalMinutes - overtimeMinutes);
-
     return {
-        totalMinutes: regularMinutes, // In this app, 'duration' field is used for regular time
-        overtimeMinutes: overtimeMinutes
+        totalMinutes: Math.max(0, totalRegularMinutes),
+        overtimeMinutes: Math.max(0, totalOvertimeMinutes)
     };
 }

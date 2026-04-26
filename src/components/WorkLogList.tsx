@@ -92,6 +92,23 @@ export default function WorkLogList({ logs, products }: Props) {
                                         <span className="remarks-icon">💬</span> {log.remarks}
                                     </div>
                                 )}
+                                {log.interruptionDetails && (
+                                    <div className="log-interruption-details" style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.4rem', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '0.4rem' }}>
+                                        <span style={{ marginRight: '0.5rem' }}>🕒 中抜け内訳:</span>
+                                        {(() => {
+                                            try {
+                                                const intervals = JSON.parse(log.interruptionDetails);
+                                                return intervals.map((inv: any, i: number) => (
+                                                    <span key={i} className="badge" style={{ background: 'rgba(255,255,255,0.05)', marginRight: '0.3rem' }}>
+                                                        {inv.start}〜{inv.end}
+                                                    </span>
+                                                ));
+                                            } catch (e) {
+                                                return <span>データエラー</span>;
+                                            }
+                                        })()}
+                                    </div>
+                                )}
                             </div>
                             <div className="log-status-badge" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem' }} data-label="状態">
                                 <span className={`badge ${log.status === '完了' ? 'badge-success' : 'badge-warning'}`}>

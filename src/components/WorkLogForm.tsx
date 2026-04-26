@@ -2,6 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { createWorkLog, getActiveProductionSlips } from '@/lib/actions'
+import { calculateDuration } from '@/lib/timeUtils'
 import { useSearchParams } from 'next/navigation'
 
 interface Props {
@@ -42,6 +43,7 @@ function WorkLogFormInner({ masterData }: Props) {
         return `${yyyy}-${mm}-${dd}`
     })
     const [interruptionTime, setInterruptionTime] = useState('0')
+    const [interruptionIntervals, setInterruptionIntervals] = useState<{ start: string, end: string }[]>([])
 
     const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -128,6 +130,7 @@ function WorkLogFormInner({ masterData }: Props) {
         formData.append('startTime', startTime)
         formData.append('endTime', endTime)
         formData.append('interruptionTime', interruptionTime)
+        formData.append('interruptionDetails', JSON.stringify(interruptionIntervals))
         formData.append('status', status)
         formData.append('remarks', remarks)
         formData.append('department', selectedDept)
@@ -145,6 +148,7 @@ function WorkLogFormInner({ masterData }: Props) {
             setStartTime('')
             setEndTime('')
             setInterruptionTime('0')
+            setInterruptionIntervals([])
             setRemarks('')
             setSelectedSlipId('')
         } catch (error: any) {
@@ -154,17 +158,8 @@ function WorkLogFormInner({ masterData }: Props) {
         }
     }
 
-    const calculateDuration = () => {
-        if (!startTime || !endTime) return null;
-        const start = new Date(`2000-01-01T${startTime}`);
-        const end = new Date(`2000-01-01T${endTime}`);
-        let diff = (end.getTime() - start.getTime()) / (1000 * 60);
-        if (diff < 0) diff += 24 * 60;
-        const result = diff - (parseInt(interruptionTime) || 0);
-        return result > 0 ? result : 0;
-    }
-
-    const duration = calculateDuration();
+    const calcResult = startTime && endTime ? calculateDuration(startTime, endTime, parseInt(interruptionTime) || 0, interruptionIntervals) : null;
+    const duration = calcResult ? calcResult.totalMinutes : null;
 
     return (
         <section className="glass p-6" style={{ borderRadius: '24px' }}>
@@ -261,7 +256,64 @@ function WorkLogFormInner({ masterData }: Props) {
                         </div>
                         <div className="input-group">
                             <label>中抜け(分)</label>
-                            <input type="number" value={interruptionTime} onChange={e => setInterruptionTime(e.target.value)} min="0" step="5" />
+                            <input type="number" value={interruptionTime} onChange={e => setInterruptionTime(e.target.value)} min="0" step="5" placeholder="その他の調整分" />
+                        </div>
+                    </div>
+
+                    {/* Interruption Intervals Section */}
+                    <div className="glass-light p-4" style={{ borderRadius: '16px', marginTop: '0.5rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                            <label style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>🕒 中抜け時間帯 (最大5項目)</label>
+                            {interruptionIntervals.length < 5 && (
+                                <button 
+                                    type="button" 
+                                    className="btn btn-sm" 
+                                    style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', background: 'var(--primary)', color: 'white' }}
+                                    onClick={() => setInterruptionIntervals([...interruptionIntervals, { start: '', end: '' }])}
+                                >
+                                    + 追加
+                                </button>
+                            )}
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                            {interruptionIntervals.length === 0 ? (
+                                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', textAlign: 'center', margin: '0.5rem 0' }}>時間帯の登録はありません</p>
+                            ) : (
+                                interruptionIntervals.map((interval, index) => (
+                                    <div key={index} style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                                        <div className="input-group" style={{ flex: 1 }}>
+                                            <input 
+                                                type="time" 
+                                                value={interval.start} 
+                                                onChange={e => {
+                                                    const newIntervals = [...interruptionIntervals];
+                                                    newIntervals[index].start = e.target.value;
+                                                    setInterruptionIntervals(newIntervals);
+                                                }} 
+                                            />
+                                        </div>
+                                        <span style={{ color: 'var(--text-secondary)' }}>〜</span>
+                                        <div className="input-group" style={{ flex: 1 }}>
+                                            <input 
+                                                type="time" 
+                                                value={interval.end} 
+                                                onChange={e => {
+                                                    const newIntervals = [...interruptionIntervals];
+                                                    newIntervals[index].end = e.target.value;
+                                                    setInterruptionIntervals(newIntervals);
+                                                }} 
+                                            />
+                                        </div>
+                                        <button 
+                                            type="button" 
+                                            onClick={() => setInterruptionIntervals(interruptionIntervals.filter((_, i) => i !== index))}
+                                            style={{ background: 'rgba(255,100,100,0.1)', border: 'none', color: '#ff6b6b', borderRadius: '50%', width: '28px', height: '28px', cursor: 'pointer' }}
+                                        >
+                                            ×
+                                        </button>
+                                    </div>
+                                ))
+                            )}
                         </div>
                     </div>
 

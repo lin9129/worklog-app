@@ -5,8 +5,8 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider = "sqlite"
+  url      = "file:./dev.db"
 }
 
 model User {
@@ -78,6 +78,7 @@ model WorkLog {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   interruptionTime  Int?     @default(0)
+  interruptionDetails String? // JSON string for intervals [{start, end}]
   part              Part?    @relation(fields: [partId], references: [id])
   process           Process? @relation(fields: [processId], references: [id])
   product           Product? @relation(fields: [productId], references: [id])

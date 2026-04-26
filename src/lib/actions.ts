@@ -31,16 +31,18 @@ export async function getMasterData() {
 
         const DEPT_ORDER: Record<string, number> = { '第一': 1, '第二': 2, '第三': 3, '第四': 4 };
         const users = usersRaw.sort((a: any, b: any) => {
-            const orderA = DEPT_ORDER[a.department || ''] || 99;
-            const orderB = DEPT_ORDER[b.department || ''] || 99;
+            const orderA = DEPT_ORDER[a?.department || ''] || 99;
+            const orderB = DEPT_ORDER[b?.department || ''] || 99;
             if (orderA !== orderB) return orderA - orderB;
-            return a.name.localeCompare(b.name, 'ja');
+            const nameA = a?.name || '';
+            const nameB = b?.name || '';
+            return nameA.localeCompare(nameB, 'ja');
         });
 
         return { users, products, processes, parts }
     } catch (error) {
         console.error('Failed to fetch master data:', error)
-        throw new Error('Failed to fetch master data')
+        throw error // 実際のラーを投げるように変更
     }
 }
 
@@ -166,7 +168,7 @@ export async function deleteMasterItem(type: 'user' | 'product' | 'process' | 'p
     try {
         if (!id || typeof id !== 'string' || id.trim() === '') {
             console.error(`Delete failed: Invalid ID for ${type}`, id)
-            throw new Error('IDが指定されていないか、無効です')
+            return { success: false, error: 'IDが指定されていないか、無効です' }
         }
         switch (type) {
             case 'user': await prisma.user.delete({ where: { id } }); break
@@ -175,9 +177,13 @@ export async function deleteMasterItem(type: 'user' | 'product' | 'process' | 'p
             case 'part': await prisma.part.delete({ where: { id } }); break
         }
         revalidatePath('/master')
+        return { success: true }
     } catch (error: any) {
         console.error(`Failed to delete ${type}:`, error)
-        throw new Error(`削除に失敗しました: 使用中データが含まれているか、${error?.message || error}`)
+        if (error.code === 'P2003') {
+            return { success: false, error: 'このデータは他の記録（作業記録や部品など）で使用されているため、削除できません。' }
+        }
+        return { success: false, error: `削除に失敗しました: ${error?.message || '不明なエラー'}` }
     }
 }
 
@@ -338,6 +344,7 @@ export async function createWorkLog(formData: FormData) {
     const remarks = formData.get('remarks') as string | null
     const department = formData.get('department') as string | null
     const interruptionTime = parseInt(formData.get('interruptionTime') as string || '0')
+    const interruptionDetails = formData.get('interruptionDetails') as string | null
 
     if (!userId || !dateStr || !startTime) {
         throw new Error('必須項目が不足しています（担当者、日付、開始時間）')
@@ -346,7 +353,8 @@ export async function createWorkLog(formData: FormData) {
     let duration = null
     let overtimeDuration = null
     if (startTime && endTime) {
-        const result = calculateDuration(startTime, endTime, interruptionTime)
+        const intervals = interruptionDetails ? JSON.parse(interruptionDetails) : []
+        const result = calculateDuration(startTime, endTime, interruptionTime, intervals)
         duration = result.totalMinutes
         overtimeDuration = result.overtimeMinutes
     }
@@ -379,6 +387,7 @@ export async function createWorkLog(formData: FormData) {
                 duration,
                 overtimeDuration,
                 interruptionTime,
+                interruptionDetails,
                 status,
                 remarks,
                 department
@@ -443,6 +452,7 @@ export async function updateWorkLog(id: string, formData: FormData) {
     const status = formData.get('status') as string
     const endTime = formData.get('endTime') as string
     const interruptionTime = parseInt(formData.get('interruptionTime') as string || '0')
+    const interruptionDetails = formData.get('interruptionDetails') as string | null
     const remarks = formData.get('remarks') as string
 
     try {
@@ -453,7 +463,8 @@ export async function updateWorkLog(id: string, formData: FormData) {
         let duration = original.duration
         let overtimeDuration = original.overtimeDuration
         if (original.startTime && endTime) {
-            const result = calculateDuration(original.startTime, endTime, interruptionTime)
+            const intervals = interruptionDetails ? JSON.parse(interruptionDetails) : (original.interruptionDetails ? JSON.parse(original.interruptionDetails as string) : [])
+            const result = calculateDuration(original.startTime, endTime, interruptionTime, intervals)
             duration = result.totalMinutes
             overtimeDuration = result.overtimeMinutes
         }
@@ -466,6 +477,7 @@ export async function updateWorkLog(id: string, formData: FormData) {
                 duration,
                 overtimeDuration,
                 interruptionTime,
+                interruptionDetails: interruptionDetails || original.interruptionDetails,
                 remarks,
             }
         })
