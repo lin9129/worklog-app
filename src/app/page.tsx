@@ -38,7 +38,7 @@ export default async function Home() {
             <div style={{ display: 'flex', gap: '1rem' }}>
               <span className="badge badge-success">稼働中</span>
               <div className="glass" style={{ padding: '0.5rem 1rem', fontSize: '0.9rem', fontWeight: 500 }}>
-                {new Date().toLocaleDateString('ja-JP', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                {new Date().toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
               </div>
             </div>
           </div>
