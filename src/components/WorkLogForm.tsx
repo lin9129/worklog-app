@@ -78,7 +78,7 @@ function WorkLogFormInner({ masterData }: Props) {
 
     // Filter master data by dept
     const filteredUsers = selectedDept ? masterData.users.filter(u => u.department === selectedDept) : masterData.users
-    const filteredProducts = selectedDept ? masterData.products.filter(p => p.department === selectedDept) : masterData.products
+    const filteredProducts = masterData.products
 
     const availableParts = productId ? masterData.parts.filter(p => p.productId === productId) : []
     const availableProcesses = (() => {
