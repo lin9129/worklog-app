@@ -78,7 +78,9 @@ export default function WorkLogList({ logs, products }: Props) {
                                     </div>
                                     <div className="meta-item" data-label="時間">
                                         <span className="meta-label mobile-hide">時間</span>
-                                        <span className="meta-value">{log.startTime} 〜 {log.endTime || '-'}</span>
+                                        <span className="meta-value">
+                                            {log.startTime === '直接入力' ? '直接入力' : `${log.startTime} 〜 ${log.endTime || '-'}`}
+                                        </span>
                                     </div>
                                     <div className="meta-item" data-label="所要時間">
                                         <span className="meta-label mobile-hide">所要時間</span>

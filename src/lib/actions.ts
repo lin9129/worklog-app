@@ -345,6 +345,7 @@ export async function createWorkLog(formData: FormData) {
     const department = formData.get('department') as string | null
     const interruptionTime = parseInt(formData.get('interruptionTime') as string || '0')
     const interruptionDetails = formData.get('interruptionDetails') as string | null
+    const directDurationStr = formData.get('duration') as string | null
 
     if (!userId || !dateStr || !startTime) {
         throw new Error('必須項目が不足しています（担当者、日付、開始時間）')
@@ -352,7 +353,10 @@ export async function createWorkLog(formData: FormData) {
 
     let duration = null
     let overtimeDuration = null
-    if (startTime && endTime) {
+    if (directDurationStr) {
+        duration = parseInt(directDurationStr, 10)
+        overtimeDuration = 0
+    } else if (startTime && endTime) {
         const intervals = interruptionDetails ? JSON.parse(interruptionDetails) : []
         const result = calculateDuration(startTime, endTime, interruptionTime, intervals)
         duration = result.totalMinutes
@@ -454,6 +458,7 @@ export async function updateWorkLog(id: string, formData: FormData) {
     const interruptionTime = parseInt(formData.get('interruptionTime') as string || '0')
     const interruptionDetails = formData.get('interruptionDetails') as string | null
     const remarks = formData.get('remarks') as string
+    const directDurationStr = formData.get('duration') as string | null
 
     try {
         if (!id || typeof id !== 'string' || id.trim() === '') throw new Error('IDが指定されていません')
@@ -462,7 +467,10 @@ export async function updateWorkLog(id: string, formData: FormData) {
 
         let duration = original.duration
         let overtimeDuration = original.overtimeDuration
-        if (original.startTime && endTime) {
+        if (directDurationStr) {
+            duration = parseInt(directDurationStr, 10)
+            overtimeDuration = 0
+        } else if (original.startTime && endTime) {
             const intervals = interruptionDetails ? JSON.parse(interruptionDetails) : (original.interruptionDetails ? JSON.parse(original.interruptionDetails as string) : [])
             const result = calculateDuration(original.startTime, endTime, interruptionTime, intervals)
             duration = result.totalMinutes

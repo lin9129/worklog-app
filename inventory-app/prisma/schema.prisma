@@ -1,0 +1,63 @@
+datasource db {
+  provider = "sqlite"
+}
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/client"
+}
+
+// 商品モデル
+model Product {
+  id               Int               @id @default(autoincrement())
+  code             String            @unique // バーコード (CODE128 規格)
+  name             String
+  description      String?
+  price            Float             @default(0.0) // 単価
+  stock            Int               @default(0)   // 現在在庫数
+  minStock         Int               @default(5)   // 安全在庫（下回るとハイライト）
+  location         String?           // 保管棚位置
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  logs             InventoryLog[]
+  stocktakeRecords StocktakeRecord[]
+}
+
+// 入出庫ログモデル
+model InventoryLog {
+  id        Int      @id @default(autoincrement())
+  productId Int
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  type      String   // "IN" (入庫) / "OUT" (出庫) / "ADJUST" (棚卸し調整など)
+  quantity  Int      // 入出庫数量
+  reason    String?  // 理由
+  operator  String?  // 担当者
+  createdAt DateTime @default(now())
+}
+
+// 棚卸しセッション
+model StocktakeSession {
+  id          Int               @id @default(autoincrement())
+  title       String            // セッション名 (例: 「2026年6月定期棚卸し」)
+  type        String            // "SIMPLE" (簡易) / "FULL" (大規模)
+  status      String            // "ACTIVE" (進行中) / "COMPLETED" (完了)
+  createdAt   DateTime          @default(now())
+  completedAt DateTime?
+  records     StocktakeRecord[]
+}
+
+// 棚卸し詳細レコード
+model StocktakeRecord {
+  id          Int              @id @default(autoincrement())
+  sessionId   Int
+  session     StocktakeSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  productId   Int
+  product     Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  systemStock Int              // 棚卸し開始時のシステム在庫数
+  actualStock Int              // 倉庫でスキャンした実在庫数
+  difference  Int              // 差異 (実在庫数 - システム在庫数)
+  scannedAt   DateTime         @default(now())
+  operator    String?          // 担当者
+
+  @@unique([sessionId, productId]) // 1セッションで1商品につき1つの記録
+}

@@ -3,18 +3,11 @@ const prisma = new PrismaClient()
 
 async function main() {
   try {
-    const tableInfo = await prisma.$queryRaw`
-      SELECT column_name, data_type 
-      FROM information_schema.columns 
-      WHERE table_name = 'WorkLog';
-    `
-    console.log('WorkLog Columns:', tableInfo)
-
-    const products = await prisma.product.findMany({
-      take: 1,
-      include: { processes: true }
-    })
-    console.log('Product Check:', products)
+    console.log('Users:', await prisma.user.count())
+    console.log('Products:', await prisma.product.count())
+    console.log('Parts:', await prisma.part.count())
+    console.log('Processes:', await prisma.process.count())
+    console.log('WorkLogs:', await prisma.workLog.count())
   } catch (e) {
     console.error('Error during check:', e)
   } finally {

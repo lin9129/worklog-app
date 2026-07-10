@@ -44,6 +44,8 @@ function WorkLogFormInner({ masterData }: Props) {
     })
     const [interruptionTime, setInterruptionTime] = useState('0')
     const [interruptionIntervals, setInterruptionIntervals] = useState<{ start: string, end: string }[]>([])
+    const [isDirectTimeInput, setIsDirectTimeInput] = useState(false)
+    const [directDuration, setDirectDuration] = useState('120')
 
     const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -127,10 +129,18 @@ function WorkLogFormInner({ masterData }: Props) {
         formData.append('processName', processName)
         formData.append('lotNumber', lotNumber)
         formData.append('date', date)
-        formData.append('startTime', startTime)
-        formData.append('endTime', endTime)
-        formData.append('interruptionTime', interruptionTime)
-        formData.append('interruptionDetails', JSON.stringify(interruptionIntervals))
+        if (isDirectTimeInput) {
+            formData.append('startTime', '直接入力')
+            formData.append('endTime', '')
+            formData.append('duration', directDuration)
+            formData.append('interruptionTime', '0')
+            formData.append('interruptionDetails', '[]')
+        } else {
+            formData.append('startTime', startTime)
+            formData.append('endTime', endTime)
+            formData.append('interruptionTime', interruptionTime)
+            formData.append('interruptionDetails', JSON.stringify(interruptionIntervals))
+        }
         formData.append('status', status)
         formData.append('remarks', remarks)
         formData.append('department', selectedDept)
@@ -151,6 +161,8 @@ function WorkLogFormInner({ masterData }: Props) {
             setInterruptionIntervals([])
             setRemarks('')
             setSelectedSlipId('')
+            setDirectDuration('120')
+            setIsDirectTimeInput(false)
         } catch (error: any) {
             alert(error.message)
         } finally {
@@ -159,7 +171,7 @@ function WorkLogFormInner({ masterData }: Props) {
     }
 
     const calcResult = startTime && endTime ? calculateDuration(startTime, endTime, parseInt(interruptionTime) || 0, interruptionIntervals) : null;
-    const duration = calcResult ? calcResult.totalMinutes : null;
+    const duration = isDirectTimeInput ? (parseInt(directDuration) || null) : (calcResult ? calcResult.totalMinutes : null);
 
     return (
         <section className="glass p-6" style={{ borderRadius: '24px' }}>
@@ -233,6 +245,28 @@ function WorkLogFormInner({ masterData }: Props) {
                         </div>
                     </div>
 
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'rgba(255,255,255,0.05)', padding: '0.6rem 1rem', borderRadius: '12px', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>時間入力モード:</span>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', fontSize: '0.9rem' }}>
+                            <input
+                                type="radio"
+                                name="timeInputMode"
+                                checked={!isDirectTimeInput}
+                                onChange={() => setIsDirectTimeInput(false)}
+                            />
+                            開始・終了時間で入力
+                        </label>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', fontSize: '0.9rem' }}>
+                            <input
+                                type="radio"
+                                name="timeInputMode"
+                                checked={isDirectTimeInput}
+                                onChange={() => setIsDirectTimeInput(true)}
+                            />
+                            合計作業時間で直接入力
+                        </label>
+                    </div>
+
                     <div className="grid-4">
                         <div className="input-group">
                             <label>工程</label>
@@ -246,76 +280,128 @@ function WorkLogFormInner({ masterData }: Props) {
                                 ))}
                             </select>
                         </div>
-                        <div className="input-group">
-                            <label>開始時間</label>
-                            <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} required />
-                        </div>
-                        <div className="input-group">
-                            <label>終了時間</label>
-                            <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} />
-                        </div>
-                        <div className="input-group">
-                            <label>中抜け(分)</label>
-                            <input type="number" value={interruptionTime} onChange={e => setInterruptionTime(e.target.value)} min="0" step="5" placeholder="その他の調整分" />
-                        </div>
+                        {!isDirectTimeInput ? (
+                            <>
+                                <div className="input-group">
+                                    <label>開始時間</label>
+                                    <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} required={!isDirectTimeInput} />
+                                </div>
+                                <div className="input-group">
+                                    <label>終了時間</label>
+                                    <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} />
+                                </div>
+                                <div className="input-group">
+                                    <label>中抜け(分)</label>
+                                    <input type="number" value={interruptionTime} onChange={e => setInterruptionTime(e.target.value)} min="0" step="5" placeholder="その他の調整分" />
+                                </div>
+                            </>
+                        ) : (
+                            <div className="input-group" style={{ gridColumn: 'span 3' }}>
+                                <label>合計作業時間</label>
+                                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <input
+                                            type="number"
+                                            value={directDuration}
+                                            onChange={e => setDirectDuration(e.target.value)}
+                                            min="1"
+                                            style={{ width: '100px' }}
+                                            required={isDirectTimeInput}
+                                        />
+                                        <span style={{ fontSize: '0.9rem' }}>分</span>
+                                    </div>
+                                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                                        (= {Math.floor((parseInt(directDuration) || 0) / 60)}時間{(parseInt(directDuration) || 0) % 60}分)
+                                    </span>
+                                    <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                                        {[
+                                            { label: '1時間(60分)', value: 60 },
+                                            { label: '2時間(120分)', value: 120 },
+                                            { label: '3時間(180分)', value: 180 },
+                                            { label: '4時間(240分)', value: 240 },
+                                            { label: '8時間(480分)', value: 480 },
+                                        ].map(btn => (
+                                            <button
+                                                key={btn.value}
+                                                type="button"
+                                                className="btn btn-sm"
+                                                style={{
+                                                    padding: '0.3rem 0.6rem',
+                                                    fontSize: '0.75rem',
+                                                    background: parseInt(directDuration) === btn.value ? 'var(--primary)' : 'rgba(255,255,255,0.08)',
+                                                    color: 'white',
+                                                    border: 'none',
+                                                    borderRadius: '6px'
+                                                }}
+                                                onClick={() => setDirectDuration(String(btn.value))}
+                                            >
+                                                {btn.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Interruption Intervals Section */}
-                    <div className="glass-light p-4" style={{ borderRadius: '16px', marginTop: '0.5rem' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                            <label style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>🕒 中抜け時間帯 (最大5項目)</label>
-                            {interruptionIntervals.length < 5 && (
-                                <button 
-                                    type="button" 
-                                    className="btn btn-sm" 
-                                    style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', background: 'var(--primary)', color: 'white' }}
-                                    onClick={() => setInterruptionIntervals([...interruptionIntervals, { start: '', end: '' }])}
-                                >
-                                    + 追加
-                                </button>
-                            )}
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-                            {interruptionIntervals.length === 0 ? (
-                                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', textAlign: 'center', margin: '0.5rem 0' }}>時間帯の登録はありません</p>
-                            ) : (
-                                interruptionIntervals.map((interval, index) => (
-                                    <div key={index} style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                                        <div className="input-group" style={{ flex: 1 }}>
-                                            <input 
-                                                type="time" 
-                                                value={interval.start} 
-                                                onChange={e => {
-                                                    const newIntervals = [...interruptionIntervals];
-                                                    newIntervals[index].start = e.target.value;
-                                                    setInterruptionIntervals(newIntervals);
-                                                }} 
-                                            />
+                    {!isDirectTimeInput && (
+                        <div className="glass-light p-4" style={{ borderRadius: '16px', marginTop: '0.5rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                <label style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>🕒 中抜け時間帯 (最大5項目)</label>
+                                {interruptionIntervals.length < 5 && (
+                                    <button 
+                                        type="button" 
+                                        className="btn btn-sm" 
+                                        style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', background: 'var(--primary)', color: 'white' }}
+                                        onClick={() => setInterruptionIntervals([...interruptionIntervals, { start: '', end: '' }])}
+                                    >
+                                        + 追加
+                                    </button>
+                                )}
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                                {interruptionIntervals.length === 0 ? (
+                                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', textAlign: 'center', margin: '0.5rem 0' }}>時間帯の登録はありません</p>
+                                ) : (
+                                    interruptionIntervals.map((interval, index) => (
+                                        <div key={index} style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                                            <div className="input-group" style={{ flex: 1 }}>
+                                                <input 
+                                                    type="time" 
+                                                    value={interval.start} 
+                                                    onChange={e => {
+                                                        const newIntervals = [...interruptionIntervals];
+                                                        newIntervals[index].start = e.target.value;
+                                                        setInterruptionIntervals(newIntervals);
+                                                    }} 
+                                                />
+                                            </div>
+                                            <span style={{ color: 'var(--text-secondary)' }}>〜</span>
+                                            <div className="input-group" style={{ flex: 1 }}>
+                                                <input 
+                                                    type="time" 
+                                                    value={interval.end} 
+                                                    onChange={e => {
+                                                        const newIntervals = [...interruptionIntervals];
+                                                        newIntervals[index].end = e.target.value;
+                                                        setInterruptionIntervals(newIntervals);
+                                                    }} 
+                                                />
+                                            </div>
+                                            <button 
+                                                type="button" 
+                                                onClick={() => setInterruptionIntervals(interruptionIntervals.filter((_, i) => i !== index))}
+                                                style={{ background: 'rgba(255,100,100,0.1)', border: 'none', color: '#ff6b6b', borderRadius: '50%', width: '28px', height: '28px', cursor: 'pointer' }}
+                                            >
+                                                ×
+                                            </button>
                                         </div>
-                                        <span style={{ color: 'var(--text-secondary)' }}>〜</span>
-                                        <div className="input-group" style={{ flex: 1 }}>
-                                            <input 
-                                                type="time" 
-                                                value={interval.end} 
-                                                onChange={e => {
-                                                    const newIntervals = [...interruptionIntervals];
-                                                    newIntervals[index].end = e.target.value;
-                                                    setInterruptionIntervals(newIntervals);
-                                                }} 
-                                            />
-                                        </div>
-                                        <button 
-                                            type="button" 
-                                            onClick={() => setInterruptionIntervals(interruptionIntervals.filter((_, i) => i !== index))}
-                                            style={{ background: 'rgba(255,100,100,0.1)', border: 'none', color: '#ff6b6b', borderRadius: '50%', width: '28px', height: '28px', cursor: 'pointer' }}
-                                        >
-                                            ×
-                                        </button>
-                                    </div>
-                                ))
-                            )}
+                                    ))
+                                )}
+                            </div>
                         </div>
-                    </div>
+                    )}
 
                     <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start' }}>
                         <div className="input-group" style={{ minWidth: '150px' }}>
